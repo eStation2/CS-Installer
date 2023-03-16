@@ -178,22 +178,13 @@ readonly IMPACT_COMPOSE="${IMPACT_VOLUME}/Libs/unix/docker-compose.yml"
 # export REMOTE_DATA_VOLUME="${DATA_VOLUME}/ingest"
 # export IMPACT_HTTP_HOST=$SERVER_URL:$IMPACT_HTTP_PORT
 # export NGINX_WMS_HOST=$SERVER_URL:$IMPACT_NGINX_PORT
-function mount_drives()
+function mount_drive()
 {
-    echo -n Trying to mount external drives..
-    for letter in d e f; do
-        wsl.exe -u root -e mkdir -p /mnt/$letter > /dev/null 2>&1
-        wsl.exe -u root -e mount -t drvfs ${letter}: /mnt/$letter -o metadata,uid=$UID,gid=1000,umask=22,fmask=111 > /dev/null 2>&1
-    done
+    echo -n Trying to mount external drive..
+    wsl.exe -u root -e mkdir -p /mnt/$MOUNT > /dev/null 2>&1
+    wsl.exe -u root -e mount -t drvfs ${MOUNT}: /mnt/$MOUNT -o metadata,uid=$UID,gid=1000,umask=22,fmask=111 > /dev/null 2>&1
     echo " Done."
     echo
-}
-
-function umount_drives()
-{
-    for letter in d e f; do
-        wsl.exe -u root -e umount /mnt/$letter > /dev/null 2>&1
-    done
 }
 
 
@@ -212,7 +203,7 @@ function pull_images()
 function cs_up()
 {
 
-    [ -n "$MOUNT" ] && mount_drives
+    [ -n "$MOUNT" ] && mount_drive
 
     check-config
 
@@ -240,8 +231,6 @@ function cs_up()
 
 function cs_down()
 {
-        [ -n "$MOUNT" ] && umount_drives
-
         docker-compose -f "${CSTATION_COMPOSE}" down
         # docker-compose --project-name "${IMPACT_PROJECT_NAME}" --env-file "${DFLT_ENV_FILE}" -f "${IMPACT_COMPOSE}" down
 }
@@ -302,18 +291,18 @@ usage(){
 >&2 cat << EOF
 Usage: $0
    [ -h | --help ]
-   [ -u | --user input ] specify user id
-   [ -g | --group input ] specify group id
+   [ -u | --user uid ] specify user id
+   [ -g | --group gid ] specify group id
    [ -i | --init ] initialize installation
    [ -j | --jrc ] pull images from JRC registry
-   [ -m | --mount ] mount / unmount removable drives in WSL
+   [ -m | --mount letter ] mount removable drive in WSL
    [ -p | --pull ] pull images from public registry
    <up|down>
 EOF
 }
 
-LONGOPTS=help,init,user:,group:,jrc,mount,pull
-OPTIONS=hiu:g:jmp
+LONGOPTS=help,init,user:,group:,jrc,mount:,pull
+OPTIONS=hiu:g:jm:p
 
 ! PARSED=$(getopt --options=$OPTIONS --longoptions=$LONGOPTS --name "$0" -- "$@")
 if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
@@ -355,8 +344,8 @@ while true; do
             shift
             ;;
         -m|--mount)
-            MOUNT=t
-            shift
+            MOUNT="$2"
+            shift 2
             ;;
         -p|--pull)
             PULL=t
