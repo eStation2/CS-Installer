@@ -344,7 +344,7 @@ while true; do
             shift
             ;;
         -m|--mount)
-            MOUNT="$2"
+            MOUNT="${2%:}"
             shift 2
             ;;
         -p|--pull)
