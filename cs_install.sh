@@ -157,27 +157,10 @@ function check-config()
     fi
 }
 
-export DATA_VOLUME
+#export DATA_VOLUME
 
-# `docker-compose.yml` files definitions:
-#
-#readonly LIBRARY_COMPOSE="${BASE_DIR}/build-docker/library/docker-compose.yml"
-#readonly NOTEBOOK_COMPOSE="${BASE_DIR}/build-docker/jupyternotebook/docker-compose.yml"
 readonly CSTATION_COMPOSE="${BASE_DIR}/docker-compose.yml"
 
-readonly IMPACT_COMPOSE="${IMPACT_VOLUME}/Libs/unix/docker-compose.yml"
-
-#   ------  IMPACT env variables definition  -------
-
-# [[ ! -z ${IMPACT_HTTP_PORT} ]] && echo "IMPACT_HTTP_PORT = ${IMPACT_HTTP_PORT}" || export IMPACT_HTTP_PORT=8899
-# [[ ! -z ${IMPACT_NGINX_PORT} ]] && echo "IMPACT_NGINX_PORT = ${IMPACT_NGINX_PORT}" || export IMPACT_NGINX_PORT=9999
-# [[ ! -z ${SERVER_URL} ]] && echo "SERVER_URL = ${SERVER_URL}" || export SERVER_URL=127.0.0.1
-
-# export ENV_FILE="${DFLT_ENV_FILE}"
-# export IMPACT_DATA_VOLUME="${DATA_VOLUME}/impact"
-# export REMOTE_DATA_VOLUME="${DATA_VOLUME}/ingest"
-# export IMPACT_HTTP_HOST=$SERVER_URL:$IMPACT_HTTP_PORT
-# export NGINX_WMS_HOST=$SERVER_URL:$IMPACT_NGINX_PORT
 function mount_drive()
 {
     echo -n Trying to mount external drive..
@@ -198,6 +181,24 @@ function pull_images()
     done
 }
 
+function fix_perms()
+{
+    local wsl=$(which wsl.exe)
+    local command="sudo"
+
+    [[ -n "$wsl" ]] && command="wsl.exe -u root -e"
+
+    echo -n "Fixing filesystem permissions.."
+    $command \
+        chmod -fR u=rwX,g=rwX,o=rwX \
+        "${DATA_VOLUME}/static_data/log" \
+        "${DATA_VOLUME}/c3sf4p_jobresults" \
+        "${TMP_VOLUME}"
+    echo " Done."
+    echo
+}
+
+
 # Stopping & Removing the containers:
 #
 function cs_up()
@@ -214,6 +215,8 @@ function cs_up()
     fi
 
     [[ -n "$PULL" ]] && pull_images
+
+    [[ -n "$FIX" ]] && fix_perms
 
     docker-compose -f "${CSTATION_COMPOSE}" up -d
     echo
@@ -232,56 +235,8 @@ function cs_up()
 function cs_down()
 {
         docker-compose -f "${CSTATION_COMPOSE}" down
-        # docker-compose --project-name "${IMPACT_PROJECT_NAME}" --env-file "${DFLT_ENV_FILE}" -f "${IMPACT_COMPOSE}" down
 }
 
-#   ------  IMPACT installation -------
-
-# echo "Testing Impact folder "${IMPACT_VOLUME}
-# mkdir -p "${IMPACT_VOLUME}"
-# echo "Testing Impact folder "${IMPACT_DATA_VOLUME}
-# mkdir -p "${IMPACT_DATA_VOLUME}"
-
-# #  test if target Impact directory is empty. If yes, clone the repo
-# if test -n "$(find "${IMPACT_VOLUME}" -maxdepth 0 -empty)"
-# then
-#     echo "Cloning IMPACT repo"
-#     git clone --depth 1 https://bitbucket.org/jrcimpact/impact5.git "${IMPACT_VOLUME}"
-# else
-#   echo "Impact directory is not empty. A manual git pull is reccomended"
-#   sleep 5
-# fi
-
-# # replace the NGINX PORT on CONF file
-# sed -i -- 's/listen [0-9]*[0-9];/listen '$IMPACT_NGINX_PORT';/g' "${IMPACT_VOLUME}/Libs/unix/build-docker/impact/nginx.conf"
-# -------------------------------------------------
-
-# Building the containers:
-#
-# if [[ -z "${NO_BUILD}" ]]
-# then
-#     if [[ -n "${NO_CACHE}" ]]
-#     then
-#         docker-compose --env-file "${ENV_FILE}" -f "${IMPACT_COMPOSE}" build "${NO_CACHE}"
-#     else
-#         docker-compose --env-file "${ENV_FILE}" -f "${IMPACT_COMPOSE}" build
-#     fi
-#     # TODO: docker-compose-build : add option to pass env file as 3rd param
-#     #docker-compose-build "${IMPACT_COMPOSE}" "${NO_CACHE}"
-# fi
-
-# if [[ -z "${NO_RUN}" ]]
-# then
-#     if [[ -n "${FORCE}" ]]
-#     then
-#         if [[ -n "$(docker-compose -f "${IMPACT_COMPOSE}" ps | awk '{ if (NR > 2) print }')" ]]
-#         then
-#             docker-compose -f "${IMPACT_COMPOSE}" down
-#         fi
-#     fi
-
-#     docker-compose --project-name "${IMPACT_PROJECT_NAME}" --env-file "${ENV_FILE}" -f "${IMPACT_COMPOSE}" up -d
-# fi
 
 # Parsing command line options:
 #
@@ -297,12 +252,13 @@ Usage: $0
    [ -j | --jrc ] pull images from JRC registry
    [ -m | --mount letter ] mount removable drive in WSL
    [ -p | --pull ] pull images from public registry
+   [ -f | --fix_perms ] fix fileystem permissions
    <up|down>
 EOF
 }
 
-LONGOPTS=help,init,user:,group:,jrc,mount:,pull
-OPTIONS=hiu:g:jm:p
+LONGOPTS=help,init,user:,group:,jrc,mount:,pull,fix_perms
+OPTIONS=hiu:g:jm:pf
 
 ! PARSED=$(getopt --options=$OPTIONS --longoptions=$LONGOPTS --name "$0" -- "$@")
 if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
@@ -319,6 +275,7 @@ GROUP_ID=
 PULL=
 JRC_ENV=
 MOUNT=
+FIX=
 
 while true; do
     case "$1" in
@@ -349,6 +306,10 @@ while true; do
             ;;
         -p|--pull)
             PULL=t
+            shift
+            ;;
+        -f|--fix_perms)
+            FIX=t
             shift
             ;;
         --)
