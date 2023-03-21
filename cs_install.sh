@@ -66,16 +66,16 @@ function update-config-files()
         echo "---------------------" >> "${CONFIG_FILE}.old"
         cat "${CONFIG_FILE}" >> "${CONFIG_FILE}.old"
         cp "${TEMPLATE_FILE}" "${CONFIG_FILE}"
-        echo >> ${CONFIG_FILE}
-        echo "USER_ID=${USER_ID:-$MYUSER}" >> ${CONFIG_FILE}
-        echo "GROUP_ID=${GROUP_ID:-$MYGROUP}" >> ${CONFIG_FILE}
+        echo >> "${CONFIG_FILE}"
+        echo "USER_ID=${USER_ID:-$MYUSER}" >> "${CONFIG_FILE}"
+        echo "GROUP_ID=${GROUP_ID:-$MYGROUP}" >> "${CONFIG_FILE}"
         success "OK!"
     else
         echo -e "$(info "INFO"): Creating the default '$(info "${CONFIG_FILENAME}")' file from the template... \c"
         cp "${TEMPLATE_FILE}" "${CONFIG_FILE}"
-        echo >> ${CONFIG_FILE}
-        echo "USER_ID=${USER_ID:-$MYUSER}" >> ${CONFIG_FILE}
-        echo "GROUP_ID=${GROUP_ID:-$MYGROUP}" >> ${CONFIG_FILE}
+        echo >> "${CONFIG_FILE}"
+        echo "USER_ID=${USER_ID:-$MYUSER}" >> "${CONFIG_FILE}"
+        echo "GROUP_ID=${GROUP_ID:-$MYGROUP}" >> "${CONFIG_FILE}"
         success "OK!"
     fi
 }
