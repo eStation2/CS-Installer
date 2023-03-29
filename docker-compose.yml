@@ -85,3 +85,4 @@ networks:
 # create an external docker volume: docker volume create --name cs-docker-postgresql12-volume -d local
 volumes:
   cs-docker-postgresql12-volume:
+    external: true
