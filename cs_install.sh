@@ -243,7 +243,7 @@ function cs_up()
 
     source "${DFLT_ENV_FILE}"
 
-    if [[ -z "$(docker volume ls | awk '{ print $2 }' | grep -e "^cs-docker-postgresql12-volume$")" ]] then
+    if [[ -z "$(docker volume ls | awk '{ print $2 }' | grep -e "^cs-docker-postgresql12-volume$")" ]]; then
         docker-create-volume "cs-docker-postgresql12-volume"
     fi
 
