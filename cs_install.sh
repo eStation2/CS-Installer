@@ -181,6 +181,23 @@ function pull_images()
     done
 }
 
+function load_images()
+{
+    echo "Trying to load images from directory $LOAD.."
+
+    files=$(shopt -s nullglob dotglob; echo "$LOAD"/*.{tar,dump})
+
+    if (( ${#files} )); then
+        for file in $files; do
+            docker load -q -i "$file"
+        done
+        echo "Done."
+    else
+        echo "Error: could not find any file!"
+    fi
+    echo
+}
+
 function fix_perms()
 {
     local wsl=$(which wsl.exe)
@@ -213,6 +230,8 @@ function cs_up()
     if [[ -z "$(docker network ls | awk '{ print $2 }' | grep -e "^jupyterhub$")" ]]; then
         docker network create "jupyterhub"
     fi
+
+    [[ -n "$LOAD" ]] && load_images
 
     [[ -n "$PULL" ]] && pull_images
 
@@ -257,8 +276,8 @@ Usage: $0
 EOF
 }
 
-LONGOPTS=help,init,user:,group:,jrc,mount:,pull,fix_perms
-OPTIONS=hiu:g:jm:pf
+LONGOPTS=help,init,user:,group:,jrc,mount:,pull,fix_perms,load:
+OPTIONS=hiu:g:jm:pfl:
 
 ! PARSED=$(getopt --options=$OPTIONS --longoptions=$LONGOPTS --name "$0" -- "$@")
 if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
@@ -276,6 +295,7 @@ PULL=
 JRC_ENV=
 MOUNT=
 FIX=
+LOAD=
 
 while true; do
     case "$1" in
@@ -311,6 +331,10 @@ while true; do
         -f|--fix_perms)
             FIX=t
             shift
+            ;;
+        -l|--load)
+            LOAD="$2"
+            shift 2
             ;;
         --)
             shift
