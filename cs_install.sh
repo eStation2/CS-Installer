@@ -215,22 +215,6 @@ function fix_perms()
     echo
 }
 
-function docker-create-volume()
-{
-    echo -e "$(info "INFO"): Creating a new Docker volume named '$(info "${1}")'... \c"
-    local ERRORS="$(docker volume create "${1}" 2>&1 > /dev/null)"
-
-    if [[ -z "${ERRORS}" ]]
-    then
-        success "OK!"
-    else
-        error "ERROR!"
-
-        echo "${ERRORS}"
-
-        exit 8
-    fi
-}
 
 # Stopping & Removing the containers:
 #
@@ -242,10 +226,6 @@ function cs_up()
     check-config
 
     source "${DFLT_ENV_FILE}"
-
-    if [[ -z "$(docker volume ls | awk '{ print $2 }' | grep -e "^cs-docker-postgresql12-volume$")" ]]; then
-        docker-create-volume "cs-docker-postgresql12-volume"
-    fi
 
     if [[ -z "$(docker network ls | awk '{ print $2 }' | grep -e "^jupyterhub$")" ]]; then
         docker network create "jupyterhub"
