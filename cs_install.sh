@@ -24,7 +24,7 @@ function error()
 }
 
 
-if ! which realpath > /dev/null
+if ! which realpath &> /dev/null
 then
     function realpath()
     {
@@ -42,8 +42,8 @@ docker compose version &> /dev/null && DOCKER_COMPOSE="docker compose" || DOCKER
 
 function update-config-files()
 {
-    local CONFIG_FILE=$1
-    local TEMPLATE_FILE=$2
+    local CONFIG_FILE="$1"
+    local TEMPLATE_FILE="$2"
 
     local CONFIG_FILENAME="$(basename "$1")"
 
@@ -58,9 +58,7 @@ function update-config-files()
         echo -e "         Removing this directory... \c"
         rmdir "${CONFIG_FILE}"
         success "OK!"
-    fi
-
-    if [[ -f "${CONFIG_FILE}" ]]; then
+    elif [[ -f "${CONFIG_FILE}" ]]; then
         echo -e "$(warning "WARNING"): The default '$(info "${CONFIG_FILENAME}")' file already exists."
         echo "         Appending the previous configuration in '$(warning "${CONFIG_FILENAME}.old")'"
         echo -e "          and creating a new file from the template... \c"
@@ -68,19 +66,18 @@ function update-config-files()
         echo "Update config file to version ${CONFIG_VERSION} of `date` " >> "${CONFIG_FILE}.old"
         echo "---------------------" >> "${CONFIG_FILE}.old"
         cat "${CONFIG_FILE}" >> "${CONFIG_FILE}.old"
-        cp "${TEMPLATE_FILE}" "${CONFIG_FILE}"
-        echo >> "${CONFIG_FILE}"
-        echo "USER_ID=${USER_ID:-$MYUSER}" >> "${CONFIG_FILE}"
-        echo "GROUP_ID=${GROUP_ID:-$MYGROUP}" >> "${CONFIG_FILE}"
-        success "OK!"
-    else
-        echo -e "$(info "INFO"): Creating the default '$(info "${CONFIG_FILENAME}")' file from the template... \c"
-        cp "${TEMPLATE_FILE}" "${CONFIG_FILE}"
-        echo >> "${CONFIG_FILE}"
-        echo "USER_ID=${USER_ID:-$MYUSER}" >> "${CONFIG_FILE}"
-        echo "GROUP_ID=${GROUP_ID:-$MYGROUP}" >> "${CONFIG_FILE}"
-        success "OK!"
     fi
+
+    echo -e "$(info "INFO"): Creating the default '$(info "${CONFIG_FILENAME}")' file from the template... \c"
+    cp "${TEMPLATE_FILE}" "${CONFIG_FILE}"
+    cat  >> "${CONFIG_FILE}" <<EOF
+
+USER_ID=${USER_ID:-$MYUSER}
+GROUP_ID=${GROUP_ID:-$MYGROUP}
+TARGET_SYSTEM=$TARGET
+EOF
+
+    success "OK!"
 }
 
 
@@ -97,7 +94,7 @@ readonly IMPACT_PROJECT_NAME="$(basename "${IMPACT_VOLUME}"| tr '[:upper:]' '[:l
 
 # Project versions:
 readonly CONFIG_VERSION="1.1.1"
-# readonly SOURCE_VERSION="1.1.0"
+
 
 readonly JRC_IMAGE_REGISTRY="d-prd-registry.jrc.it"
 
@@ -127,16 +124,12 @@ function check-config()
             echo "      This script will now create some environmental files"
             echo "       needed to execute the application properly."
             echo
-
-            touch "${CONFIG_DIR}/init.lock"
         else
             echo -e "$(info "INFO"): Since the last run of the Climate Station containers stack"
             echo "       on this machine, the required configurations have been changed."
             echo "      This script will now replace some environmental files with"
             echo "       the new ones needed to execute the application properly."
             echo
-
-            touch "${CONFIG_DIR}/update.lock"
         fi
 
         update-config-files "${DFLT_ENV_FILE}" "${TMPL_ENV_FILE}"
@@ -149,16 +142,8 @@ function check-config()
         echo
         echo "${CONFIG_VERSION}" > "${CONFIG_DIR}/version.conf"
         exit 0
-    elif [[ -f "${CONFIG_DIR}/init.lock" ]]; then
-        readonly INIT="true"
-        rm "${CONFIG_DIR}/init.lock"
-    elif [[ -f "${CONFIG_DIR}/update.lock" ]]; then
-        readonly UPDATE="true"
-        rm "${CONFIG_DIR}/update.lock"
     fi
 }
-
-#export DATA_VOLUME
 
 readonly CSTATION_COMPOSE="${BASE_DIR}/docker-compose.yml"
 
@@ -287,6 +272,7 @@ Usage: $0
    [ -j | --jrc ] pull images from JRC registry
    [ -p | --pull ] pull images from public registry
    [ -f | --fix_perms ] fix fileystem permissions
+   [ -t | --target_system ] <climatestation (default) | estation>
    <up (default) | down>
 EOF
 }
@@ -308,7 +294,6 @@ USER_ID=
 GROUP_ID=
 PULL=
 JRC_ENV=
-MOUNT=
 FIX=
 LOAD=
 TARGET=climatestation
@@ -320,7 +305,7 @@ while true; do
             exit 0
             ;;
         -i|--install)
-            # always install updates
+            # always installing updates
             shift
             ;;
         -u|--user)
@@ -357,7 +342,7 @@ while true; do
             break
             ;;
         *)
-            echo -e "Unknown option: '$(warning "${1}")'"
+            echo -e "Unknown option: '$(warning "$1")'"
             echo -e "Run '$(info "${BASE_FILE} --help")' for more information."
             exit 2
             ;;
@@ -366,15 +351,18 @@ done
 
 if [[ $# -gt 1 ]]; then
   usage
+  exit 1
 fi
 
 case "$TARGET" in
     climatestation|estation)
+        # ok
         ;;
     *)
-        echo "Unknown usage type: $TARGET"
+        echo "Unknown target system: $TARGET"
         echo
         usage
+        exit 1
         ;;
 esac
 
