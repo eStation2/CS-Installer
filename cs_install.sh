@@ -23,6 +23,7 @@ function error()
     echo -e "\e[31m${1}\e[0m"
 }
 
+
 if ! which realpath > /dev/null
 then
     function realpath()
@@ -35,6 +36,9 @@ then
         fi
     }
 fi
+
+docker compose version &> /dev/null && DOCKER_COMPOSE="docker compose" || DOCKER_COMPOSE="docker-compose"
+
 
 function update-config-files()
 {
@@ -51,7 +55,6 @@ function update-config-files()
         echo -e "          the same name as the '$(info "${CONFIG_FILENAME}")' file."
         echo "         You probably ran the 'docker-compose' command manually before"
         echo "          running this script."
-        echo "         Pay attention for next time."
         echo -e "         Removing this directory... \c"
         rmdir "${CONFIG_FILE}"
         success "OK!"
@@ -144,8 +147,6 @@ function check-config()
         echo "          value with a 32-character random string."
         echo "         Once you've done so, run this script again"
         echo
-        echo "         Don't forget to run with the -i option!."
-        echo
         echo "${CONFIG_VERSION}" > "${CONFIG_DIR}/version.conf"
         exit 0
     elif [[ -f "${CONFIG_DIR}/init.lock" ]]; then
@@ -169,7 +170,6 @@ function mount_drive()
     echo " Done."
     echo
 }
-
 
 function pull_images()
 {
@@ -232,12 +232,12 @@ function docker-create-volume()
     fi
 }
 
-# Stopping & Removing the containers:
-#
 function cs_up()
 {
 
-    [ -n "$MOUNT" ] && mount_drive
+    [[ -n "$LOAD" ]] && load_images
+
+    [[ -n "$PULL" ]] && pull_images
 
     check-config
 
@@ -252,13 +252,9 @@ function cs_up()
         docker network create "jupyterhub"
     fi
 
-    [[ -n "$LOAD" ]] && load_images
-
-    [[ -n "$PULL" ]] && pull_images
-
     [[ -n "$FIX" ]] && fix_perms
 
-    docker-compose -f "${CSTATION_COMPOSE}" up -d
+    ${DOCKER_COMPOSE} -f "${CSTATION_COMPOSE}" up -d
     echo
     echo Climate Station is up.
     echo
@@ -268,20 +264,19 @@ function cs_up()
         sleep 10
         success "Ready"
 
-        docker-compose -f "${CSTATION_COMPOSE}" exec -T postgres bash /install_update_db.sh
+        ${DOCKER_COMPOSE} -f "${CSTATION_COMPOSE}" exec -T postgres bash /install_update_db.sh
     fi
 }
 
 function cs_down()
 {
-        docker-compose -f "${CSTATION_COMPOSE}" down
+        ${DOCKER_COMPOSE} -f  "${CSTATION_COMPOSE}" down
 }
 
 
 # Parsing command line options:
 #
 #
-
 usage(){
 >&2 cat << EOF
 Usage: $0
@@ -290,15 +285,14 @@ Usage: $0
    [ -g | --group gid ] specify group id
    [ -i | --init ] initialize installation
    [ -j | --jrc ] pull images from JRC registry
-   [ -m | --mount letter ] mount removable drive in WSL
    [ -p | --pull ] pull images from public registry
    [ -f | --fix_perms ] fix fileystem permissions
-   <up|down>
+   <up (default) | down>
 EOF
 }
 
-LONGOPTS=help,init,user:,group:,jrc,mount:,pull,fix_perms,load:
-OPTIONS=hiu:g:jm:pfl:
+LONGOPTS=help,init,user:,group:,jrc,pull,fix_perms,load:,target_system:
+OPTIONS=hiu:g:jpfl:t:
 
 ! PARSED=$(getopt --options=$OPTIONS --longoptions=$LONGOPTS --name "$0" -- "$@")
 if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
@@ -309,7 +303,7 @@ fi
 # read getopt’s output this way to handle the quoting right:
 eval set -- "$PARSED"
 
-INIT=
+INIT=t
 USER_ID=
 GROUP_ID=
 PULL=
@@ -317,6 +311,7 @@ JRC_ENV=
 MOUNT=
 FIX=
 LOAD=
+TARGET=climatestation
 
 while true; do
     case "$1" in
@@ -325,7 +320,7 @@ while true; do
             exit 0
             ;;
         -i|--install)
-            INIT=t
+            # always install updates
             shift
             ;;
         -u|--user)
@@ -341,10 +336,6 @@ while true; do
             JRC_ENV=t
             shift
             ;;
-        -m|--mount)
-            MOUNT="${2%:}"
-            shift 2
-            ;;
         -p|--pull)
             PULL=t
             shift
@@ -355,6 +346,10 @@ while true; do
             ;;
         -l|--load)
             LOAD="$2"
+            shift 2
+            ;;
+        -t|--target_system)
+            TARGET="$2"
             shift 2
             ;;
         --)
@@ -372,5 +367,15 @@ done
 if [[ $# -gt 1 ]]; then
   usage
 fi
+
+case "$TARGET" in
+    climatestation|estation)
+        ;;
+    *)
+        echo "Unknown usage type: $TARGET"
+        echo
+        usage
+        ;;
+esac
 
 [[ ${1:-up} = "down" ]] && cs_down || cs_up
