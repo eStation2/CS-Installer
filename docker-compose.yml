@@ -5,6 +5,7 @@ services:
     env_file: ./.env
     environment:
        CS_VERSION: "1.1.3"
+       TARGET_SYSTEM: ${TARGET_SYSTEM}
 #    build:
 #      context: ./build-docker/web/
     container_name: web
@@ -45,6 +46,7 @@ services:
     env_file: ./.env
     container_name: postgres
     environment:
+      TARGET_SYSTEM: ${TARGET_SYSTEM}
       DB_VERSION: "113"
       PGPASSWORD: "mesadmin"
       POSTGRES_USER: "estation"
