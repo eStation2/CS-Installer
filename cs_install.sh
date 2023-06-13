@@ -96,7 +96,7 @@ readonly IMPACT_PROJECT_NAME="$(basename "${IMPACT_VOLUME}"| tr '[:upper:]' '[:l
 readonly CONFIG_VERSION="1.1.1"
 
 
-readonly JRC_IMAGE_REGISTRY="d-prd-registry.jrc.it"
+readonly JRC_IMAGE_REGISTRY="d-prd-registry.jrc.it/d6-estation"
 
 # Template files:
 #
