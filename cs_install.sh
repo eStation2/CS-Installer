@@ -1,7 +1,36 @@
 #!/usr/bin/env bash
 #
+set -o errexit -o pipefail -o nounset
 
-set -o errexit -o pipefail -o noclobber -o nounset
+# Base definitions
+#
+readonly BASE_DIR="$(realpath "$(dirname "${0}")")"
+readonly BASE_FILE="$(basename "${0}")"
+
+readonly CONFIG_DIR="${BASE_DIR}/.configs"
+
+export IMPACT_VOLUME="${BASE_DIR}/../Impact"
+#readonly IMPACT_PROJECT_NAME="$(basename "${IMPACT_VOLUME}")"
+readonly IMPACT_PROJECT_NAME="$(basename "${IMPACT_VOLUME}"| tr '[:upper:]' '[:lower:]')"
+
+# Project versions:
+readonly CONFIG_VERSION="1.1.1"
+
+readonly JRC_IMAGE_REGISTRY="d-prd-registry.jrc.it/d6-estation"
+
+# Template files:
+#
+readonly DFLT_ENV_FILE="${BASE_DIR}/.env"
+readonly TMPL_ENV_FILE="${BASE_DIR}/.env.template"
+
+readonly CS_IMAGES=("climatestation/postgis:2.0"
+                    "climatestation/web:2.0"
+                    "climatestation/jupyterhub:latest"
+                    "climatestation/jupyternotebook:latest")
+
+readonly CSTATION_COMPOSE="${BASE_DIR}/docker-compose.yml"
+
+
 
 function success()
 {
@@ -23,29 +52,42 @@ function error()
     echo -e "\e[31m${1}\e[0m"
 }
 
+function merge-files()
+{
+    local NEW_TEMPLATE="$1"
+    local OLD_CONF="$2"
+    
+    local TEMPFILE=$(mktemp -q)
 
-if ! which realpath &> /dev/null
-then
-    function realpath()
-    {
-        if [[ "${1}" == /* ]]
-        then
-            echo "${1}"
-        else
-            echo "${PWD}/${1#./}"
+    while IFS= read -r line;  do
+        defin=$(echo "$line" | grep -o '^[[:alnum:]_]\+=')
+
+        if [[ "$defin" ]]; then
+
+            # Check the definition exist in the old one
+            old_def=$(grep "^${defin}" "$OLD_CONF")
+
+            if [[ "$old_def" ]]; then
+                echo "$old_def" >> $TEMPFILE
+
+            else # New definition - Copy the line
+                echo "$line" >> $TEMPFILE
+            fi
+        else  # Not a definition - Copy the line
+            echo "$line" >> $TEMPFILE
         fi
-    }
-fi
+    done < "$NEW_TEMPLATE"
 
-docker compose version &> /dev/null && DOCKER_COMPOSE="docker compose" || DOCKER_COMPOSE="docker-compose"
-
+    mv $TEMPFILE $OLD_CONF
+}
 
 function update-config-files()
 {
     local CONFIG_FILE="$1"
     local TEMPLATE_FILE="$2"
+    local OLD_VERSION="${3:-old}"
 
-    local CONFIG_FILENAME="$(basename "$1")"
+    local CONFIG_FILENAME="$(basename "$CONFIG_FILE")"
 
     local MYUSER=$(id -u)
     local MYGROUP=$(id -g)
@@ -55,58 +97,34 @@ function update-config-files()
         echo -e "          the same name as the '$(info "${CONFIG_FILENAME}")' file."
         echo "         You probably ran the 'docker-compose' command manually before"
         echo "          running this script."
-        echo -e "         Removing this directory... \c"
-        rmdir "${CONFIG_FILE}"
+        echo -e "         Renaming this directory… \c"
+        mv "${CONFIG_FILE}" "${CONFIG_FILE}.dir.old"
         success "OK!"
-    elif [[ -f "${CONFIG_FILE}" ]]; then
-        echo -e "$(warning "WARNING"): The default '$(info "${CONFIG_FILENAME}")' file already exists."
-        echo "         Appending the previous configuration in '$(warning "${CONFIG_FILENAME}.old")'"
-        echo -e "          and creating a new file from the template... \c"
-        echo "=====================" >> "${CONFIG_FILE}.old"
-        echo "Update config file to version ${CONFIG_VERSION} of `date` " >> "${CONFIG_FILE}.old"
-        echo "---------------------" >> "${CONFIG_FILE}.old"
-        cat "${CONFIG_FILE}" >> "${CONFIG_FILE}.old"
+        echo
     fi
 
-    echo -e "$(info "INFO"): Creating the default '$(info "${CONFIG_FILENAME}")' file from the template... \c"
-    cp "${TEMPLATE_FILE}" "${CONFIG_FILE}"
+    if [[ -f "${CONFIG_FILE}" ]]; then
+        echo -e "$(info "INFO"): Copying existing $(info "${CONFIG_FILENAME}") to $(info "${CONFIG_FILE}.${OLD_VERSION}")… \c"
+        cp -a "$CONFIG_FILE" "${CONFIG_FILE}.${OLD_VERSION}"
+        success "OK!"
+        echo
+        merge-files "$TEMPLATE_FILE" "$CONFIG_FILE"
+        
+    else
+        echo -e "$(info "INFO"): Creating the default '$(info "${CONFIG_FILENAME}")' file from the template… \c"
+        cp "${TEMPLATE_FILE}" "${CONFIG_FILE}"
+        success "OK!"
+        echo
+
+    fi
+
     cat  >> "${CONFIG_FILE}" <<EOF
 
 USER_ID=${USER_ID:-$MYUSER}
 GROUP_ID=${GROUP_ID:-$MYGROUP}
 TARGET_SYSTEM=$TARGET
 EOF
-
-    success "OK!"
 }
-
-
-# Base directories:
-#
-readonly BASE_DIR="$(realpath "$(dirname "${0}")")"
-readonly BASE_FILE="$(basename "${0}")"
-
-readonly CONFIG_DIR="${BASE_DIR}/.configs"
-
-export IMPACT_VOLUME="${BASE_DIR}/../Impact"
-#readonly IMPACT_PROJECT_NAME="$(basename "${IMPACT_VOLUME}")"
-readonly IMPACT_PROJECT_NAME="$(basename "${IMPACT_VOLUME}"| tr '[:upper:]' '[:lower:]')"
-
-# Project versions:
-readonly CONFIG_VERSION="1.1.1"
-
-
-readonly JRC_IMAGE_REGISTRY="d-prd-registry.jrc.it/d6-estation"
-
-# Template files:
-#
-readonly DFLT_ENV_FILE="${BASE_DIR}/.env"
-readonly TMPL_ENV_FILE="${BASE_DIR}/.env.template"
-
-readonly CS_IMAGES=("climatestation/postgis:2.0"
-                    "climatestation/web:2.0"
-                    "climatestation/jupyterhub:latest"
-                    "climatestation/jupyternotebook:latest")
 
 function check-config()
 {
@@ -117,35 +135,37 @@ function check-config()
         LATEST_VERSION="$(cat "${CONFIG_DIR}/version.conf")"
     fi
 
-    if [[ "${CONFIG_VERSION}" != "${LATEST_VERSION}" ]]; then
-        if [[ -z "${LATEST_VERSION}" ]]; then
-            echo -e "$(info "INFO"): You are running the Climate Station containers"
-            echo "       stack on this machine for the first time."
-            echo "      This script will now create some environmental files"
-            echo "       needed to execute the application properly."
-            echo
-        else
-            echo -e "$(info "INFO"): Since the last run of the Climate Station containers stack"
-            echo "       on this machine, the required configurations have been changed."
-            echo "      This script will now replace some environmental files with"
-            echo "       the new ones needed to execute the application properly."
-            echo
-        fi
-
-        update-config-files "${DFLT_ENV_FILE}" "${TMPL_ENV_FILE}"
-
-        echo "$(warning "WARNING"): Please, be sure to review the contents of these files"
-        echo "          and configure them appropriately for your system."
-        echo -e "         Don't forget to change also the '$(info "JWT_SECRET")'"
-        echo "          value with a 32-character random string."
-        echo "         Once you've done so, run this script again"
-        echo
-        echo "${CONFIG_VERSION}" > "${CONFIG_DIR}/version.conf"
-        exit 0
+    if [[ "${CONFIG_VERSION}" = "${LATEST_VERSION}" ]]; then
+        echo -e "$(info "INFO"): No changes to configuration files."
+        return
     fi
-}
 
-readonly CSTATION_COMPOSE="${BASE_DIR}/docker-compose.yml"
+    if [[ -z "${LATEST_VERSION}" ]]; then
+        echo -e "$(info "INFO"): You are running the Climate Station containers"
+        echo "       stack on this machine for the first time."
+        echo "      This script will now create some environmental files"
+        echo "       needed to execute the application properly."
+        echo
+    else
+        echo -e "$(info "INFO"): Since the last run of the Climate Station containers stack"
+        echo "       on this machine, the required configurations have been changed."
+        echo "      This script will now replace some environmental files with"
+        echo "       the new ones needed to execute the application properly."
+        echo
+    fi
+
+    update-config-files "${DFLT_ENV_FILE}" "${TMPL_ENV_FILE}" "$LATEST_VERSION"
+
+    echo "$(warning "WARNING"): Please, be sure to review the contents of these files"
+    echo "          and configure them appropriately for your system."
+    echo -e "         Don't forget to change also the '$(info "JWT_SECRET")'"
+    echo "          value with a 32-character random string."
+    echo "         Once you've done so, run this script again"
+    echo
+
+    echo "${CONFIG_VERSION}" > "${CONFIG_DIR}/version.conf"
+    exit 0
+}
 
 function mount_drive()
 {
@@ -202,7 +222,7 @@ function fix_perms()
 
 function docker-create-volume()
 {
-    echo -e "$(info "INFO"): Creating a new Docker volume named '$(info "${1}")'... \c"
+    echo -e "$(info "INFO"): Creating a new Docker volume named '$(info "${1}")'… \c"
     local ERRORS="$(docker volume create "${1}" 2>&1 > /dev/null)"
 
     if [[ -z "${ERRORS}" ]]
@@ -247,7 +267,7 @@ function cs_up()
     echo
 
     if [[ -n "$INIT" ]]; then
-        echo -e "$(info "INFO"): Waiting for the database containers to be ready to install updates... \c"
+        echo -e "$(info "INFO"): Waiting for the database containers to be ready to install updates… \c"
         sleep 10
         success "Ready"
 
@@ -257,15 +277,13 @@ function cs_up()
 
 function cs_down()
 {
-        ${DOCKER_COMPOSE} -f  "${CSTATION_COMPOSE}" down
+    ${DOCKER_COMPOSE} -f  "${CSTATION_COMPOSE}" down
 }
 
 
-# Parsing command line options:
-#
-#
-usage(){
->&2 cat << EOF
+function usage()
+{
+    >&2 cat << EOF
 Usage: $0
    [ -h | --help ]
    [ -u | --user uid ] specify user id
@@ -279,9 +297,31 @@ Usage: $0
 EOF
 }
 
-LONGOPTS=help,init,user:,group:,jrc,pull,fix_perms,load:,target_system:
-OPTIONS=hiu:g:jpfl:t:
 
+### code starts here
+###
+
+if ! which realpath &> /dev/null
+then
+    function realpath()
+    {
+        if [[ "${1}" == /* ]]
+        then
+            echo "${1}"
+        else
+            echo "${PWD}/${1#./}"
+        fi
+    }
+fi
+
+docker compose version &> /dev/null && DOCKER_COMPOSE="docker compose" || DOCKER_COMPOSE="docker-compose"
+
+readonly LONGOPTS=help,init,user:,group:,jrc,pull,fix_perms,load:,target_system:
+readonly OPTIONS=hiu:g:jpfl:t:
+
+# Parsing command line options:
+#
+#
 ! PARSED=$(getopt --options=$OPTIONS --longoptions=$LONGOPTS --name "$0" -- "$@")
 if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
     # e.g. return value is 1
