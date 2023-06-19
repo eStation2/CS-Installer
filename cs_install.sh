@@ -4,6 +4,19 @@ set -o errexit -o pipefail -o nounset
 
 # Base definitions
 #
+if ! which realpath &> /dev/null
+then
+    function realpath()
+    {
+        if [[ "${1}" == /* ]]
+        then
+            echo "${1}"
+        else
+            echo "${PWD}/${1#./}"
+        fi
+    }
+fi
+
 readonly BASE_DIR="$(realpath "$(dirname "${0}")")"
 readonly BASE_FILE="$(basename "${0}")"
 
@@ -123,6 +136,7 @@ function update-config-files()
 USER_ID=${USER_ID:-$MYUSER}
 GROUP_ID=${GROUP_ID:-$MYGROUP}
 TARGET_SYSTEM=$TARGET
+TYPE_OF_INSTALLATION=$TYPE_OF_INSTALLATION
 EOF
 }
 
@@ -249,6 +263,7 @@ function cs_up()
     source "${DFLT_ENV_FILE}"
 
     export TARGET_SYSTEM=$TARGET
+    export TYPE_OF_INSTALLATION=$TYPE_OF_INSTALLATION
 
     if [[ -z "$(docker volume ls | awk '{ print $2 }' | grep -e "^cs-docker-postgresql12-volume$")" ]]
     then
@@ -301,18 +316,6 @@ EOF
 ### code starts here
 ###
 
-if ! which realpath &> /dev/null
-then
-    function realpath()
-    {
-        if [[ "${1}" == /* ]]
-        then
-            echo "${1}"
-        else
-            echo "${PWD}/${1#./}"
-        fi
-    }
-fi
 
 docker compose version &> /dev/null && DOCKER_COMPOSE="docker compose" || DOCKER_COMPOSE="docker-compose"
 
@@ -339,6 +342,7 @@ JRC_ENV=
 FIX=
 LOAD=
 TARGET=climatestation
+TYPE_OF_INSTALLATION=full
 
 while true; do
     case "$1" in
