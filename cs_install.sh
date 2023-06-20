@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-set -o errexit -o pipefail -o nounset
+set -u
 
 # Base definitions
 #
@@ -71,6 +71,7 @@ function merge-files()
     local OLD_CONF="$2"
     
     local TEMPFILE=$(mktemp -q)
+    [[ -w $TEMPFILE ]] || { error "Cannot create temp file"; exit 1; }
 
     while IFS= read -r line;  do
         defin=$(echo "$line" | grep -o '^[[:alnum:]_]\+=')
@@ -111,22 +112,19 @@ function update-config-files()
         echo "         You probably ran the 'docker-compose' command manually before"
         echo "          running this script."
         echo -e "         Renaming this directory… \c"
-        mv "${CONFIG_FILE}" "${CONFIG_FILE}.dir.old"
-        success "OK!"
+        mv "${CONFIG_FILE}" "${CONFIG_FILE}.dir.old" && success "OK!" || { error "ERROR"; exit; }
         echo
     fi
 
     if [[ -f "${CONFIG_FILE}" ]]; then
         echo -e "$(info "INFO"): Copying existing $(info "${CONFIG_FILENAME}") to $(info "${CONFIG_FILE}.${OLD_VERSION}")… \c"
-        cp -a "$CONFIG_FILE" "${CONFIG_FILE}.${OLD_VERSION}"
-        success "OK!"
+        cp -a "$CONFIG_FILE" "${CONFIG_FILE}.${OLD_VERSION}" && success "OK!" || { error "ERROR"; exit; }
         echo
-        merge-files "$TEMPLATE_FILE" "$CONFIG_FILE"
+        merge-files "$TEMPLATE_FILE" "$CONFIG_FILE" || exit
         
     else
         echo -e "$(info "INFO"): Creating the default '$(info "${CONFIG_FILENAME}")' file from the template… \c"
-        cp "${TEMPLATE_FILE}" "${CONFIG_FILE}"
-        success "OK!"
+        cp "${TEMPLATE_FILE}" "${CONFIG_FILE}" && success "OK!" || { error "ERROR"; exit; }
         echo
 
     fi
@@ -168,7 +166,7 @@ function check-config()
         echo
     fi
 
-    update-config-files "${DFLT_ENV_FILE}" "${TMPL_ENV_FILE}" "$LATEST_VERSION"
+    update-config-files "${DFLT_ENV_FILE}" "${TMPL_ENV_FILE}" "$LATEST_VERSION" || { error "Error updating configuration"; exit; }
 
     echo "$(warning "WARNING"): Please, be sure to review the contents of these files"
     echo "          and configure them appropriately for your system."
@@ -177,7 +175,7 @@ function check-config()
     echo "         Once you've done so, run this script again"
     echo
 
-    echo "${CONFIG_VERSION}" > "${CONFIG_DIR}/version.conf"
+    echo "${CONFIG_VERSION}" > "${CONFIG_DIR}/version.conf" || { error "Error updating version number"; exit; }
     exit 0
 }
 
