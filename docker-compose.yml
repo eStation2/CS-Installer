@@ -4,7 +4,7 @@ services:
   web:
     env_file: ./.env
     environment:
-       CS_VERSION: "1.1.3"
+       CS_VERSION: "1.1.4"
        TARGET_SYSTEM: ${TARGET_SYSTEM}
        TYPE_OF_INSTALLATION: ${TYPE_OF_INSTALLATION}
 #    build:
@@ -48,7 +48,7 @@ services:
     container_name: postgres
     environment:
       TARGET_SYSTEM: ${TARGET_SYSTEM}
-      DB_VERSION: "113"
+      DB_VERSION: "114"
       PGPASSWORD: "mesadmin"
       POSTGRES_USER: "estation"
       POSTGRES_PASS: "mesadmin"
