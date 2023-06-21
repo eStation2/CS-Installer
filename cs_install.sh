@@ -27,7 +27,7 @@ export IMPACT_VOLUME="${BASE_DIR}/../Impact"
 readonly IMPACT_PROJECT_NAME="$(basename "${IMPACT_VOLUME}"| tr '[:upper:]' '[:lower:]')"
 
 # Project versions:
-readonly CONFIG_VERSION="1.1.1"
+readonly CONFIG_VERSION="1.1.2"
 
 readonly JRC_IMAGE_REGISTRY="d-prd-registry.jrc.it/d6-estation"
 
@@ -133,10 +133,11 @@ function update-config-files()
 
 USER_ID=${USER_ID:-$MYUSER}
 GROUP_ID=${GROUP_ID:-$MYGROUP}
-TARGET_SYSTEM=$TARGET
-TYPE_OF_INSTALLATION=$TYPE_OF_INSTALLATION
+
 EOF
 }
+#TARGET_SYSTEM=$TARGET
+#TYPE_OF_INSTALLATION=$TYPE_OF_INSTALLATION
 
 function check-config()
 {
