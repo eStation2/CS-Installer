@@ -22,10 +22,6 @@ readonly BASE_FILE="$(basename "${0}")"
 
 readonly CONFIG_DIR="${BASE_DIR}/.configs"
 
-export IMPACT_VOLUME="${BASE_DIR}/../Impact"
-#readonly IMPACT_PROJECT_NAME="$(basename "${IMPACT_VOLUME}")"
-readonly IMPACT_PROJECT_NAME="$(basename "${IMPACT_VOLUME}"| tr '[:upper:]' '[:lower:]')"
-
 # Project versions:
 readonly CONFIG_VERSION="1.1.2"
 
@@ -43,7 +39,8 @@ readonly CS_IMAGES=("climatestation/postgis:2.0"
 
 readonly CSTATION_COMPOSE="${BASE_DIR}/docker-compose.yml"
 
-
+readonly IMPACT_IMAGE="mydronedocker/impact5:latest"
+readonly IMPACT_NAME="impact5"
 
 function success()
 {
@@ -197,6 +194,8 @@ function pull_images()
     for image in ${CS_IMAGES[@]}; do
         docker pull "${IMAGE_PREFIX}${image}"
     done
+
+    docker pull "${IMAGE_PREFIX}${IMPACT_IMAGE}"
 }
 
 function load_images()
@@ -287,11 +286,29 @@ function cs_up()
 
         ${DOCKER_COMPOSE} -f "${CSTATION_COMPOSE}" exec -T postgres bash /install_update_db.sh
     fi
+
+    IMPACT_DATA_VOLUME=$DATA_VOLUME/impact
+    REMOTE_DATA_VOLUME=$DATA_VOLUME/ingest
+
+    [ ! -d ${IMPACT_DATA_VOLUME} ] || mkdir -p ${IMPACT_DATA_VOLUME}
+    [ ! -d ${IMPACT_DATA_VOLUME}/db ] || mkdir -p ${IMPACT_DATA_VOLUME}/db
+
+    if [  $( docker ps -a | grep ${IMPACT_NAME} | wc -l ) -gt 0 ]; then
+          docker stop ${IMPACT_NAME}
+          docker rm ${IMPACT_NAME}
+    fi
+    docker run -d --env-file ${DFLT_ENV_FILE} -v ${IMPACT_DATA_VOLUME}:/data -v ${REMOTE_DATA_VOLUME}:/remote_data -p $IMPACT_NGINX_PORT:8899 --name ${IMPACT_NAME} ${IMPACT_IMAGE}
+
+
 }
 
 function cs_down()
 {
     ${DOCKER_COMPOSE} -f  "${CSTATION_COMPOSE}" down
+
+    if [  $( docker ps -a | grep ${IMPACT_NAME} | wc -l ) -gt 0 ]; then
+          docker stop ${IMPACT_NAME} && docker rm ${IMPACT_NAME}
+    fi
 }
 
 
