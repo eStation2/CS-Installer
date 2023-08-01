@@ -23,7 +23,7 @@ readonly BASE_FILE="$(basename "${0}")"
 readonly CONFIG_DIR="${BASE_DIR}/.configs"
 
 # Project versions:
-readonly CONFIG_VERSION="1.1.2"
+readonly CONFIG_VERSION="1.1.3"
 
 readonly JRC_IMAGE_REGISTRY="d-prd-registry.jrc.it/d6-estation"
 
@@ -297,8 +297,14 @@ function cs_up()
           docker stop ${IMPACT_NAME}
           docker rm ${IMPACT_NAME}
     fi
-    docker run -d --env-file ${DFLT_ENV_FILE} -v ${IMPACT_DATA_VOLUME}:/data -v ${REMOTE_DATA_VOLUME}:/remote_data -p $IMPACT_NGINX_PORT:8899 --name ${IMPACT_NAME} ${IMPACT_IMAGE}
-
+    docker run -d \
+        --env-file ${DFLT_ENV_FILE} \
+        --env IMPACT_NGINX_PORT=${IMPACT_PORT} \
+        -v ${IMPACT_DATA_VOLUME}:/data \
+        -v ${REMOTE_DATA_VOLUME}:/remote_data \
+        -p ${IMPACT_PORT}:8899 \
+        --name ${IMPACT_NAME} \
+        ${IMPACT_IMAGE}
 
 }
 
