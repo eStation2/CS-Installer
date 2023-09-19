@@ -64,7 +64,10 @@ services:
       WAL_SIZE: "4GB"
       MIN_WAL_SIZE: "2048MB"
       WAL_SEGSIZE: "1024"
-      MAINTAINANCE_WORK_MEM: "128MB"
+      MAINTAINANCE_WORK_MEM: "1320MB"
+      MAX_CONNECTIONS: "500"
+      SHARED_BUFFERS: "1024MB"
+      WORK_MEM: "128MB"
     image: "climatestation/postgis:2.0"
     ports:
       - ${CS_PGPORT}:5432
