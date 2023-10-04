@@ -181,7 +181,8 @@ function pull_images()
     [[ -n "${JRC_ENV}" ]] && IMAGE_PREFIX="${JRC_IMAGE_REGISTRY}/"
 
     for image in ${CS_IMAGES[@]}; do
-        docker pull "${IMAGE_PREFIX}${image}"
+        docker pull "${IMAGE_PREFIX}${image}" \
+            || { error "Error: could not pull ${IMAGE_PREFIX}${image}"; exit; }
     done
 
     docker pull "${IMAGE_PREFIX}${IMPACT_IMAGE}"
@@ -266,10 +267,9 @@ function cs_up()
 
     [[ -n "$FIX" ]] && fix_perms
 
-    ${DOCKER_COMPOSE} -f "${CSTATION_COMPOSE}" up -d
-    echo
-    echo Climate Station is up.
-    echo
+    ${DOCKER_COMPOSE} -f "${CSTATION_COMPOSE}" up -d  \
+        && success "Climate Station is up" \
+        || { error "Error: could not start Climatestation"; exit; }
 
     if [[ -n "$INIT" ]]; then
         echo -e "$(info "INFO"): Waiting for the database containers to be ready to install updates… \c"
