@@ -33,9 +33,7 @@ readonly DFLT_ENV_FILE="${BASE_DIR}/.env"
 readonly TMPL_ENV_FILE="${BASE_DIR}/.env.template"
 
 readonly CS_IMAGES=("climatestation/postgis:2.0"
-                    "climatestation/web:2.0"
-                    "climatestation/jupyterhub:latest"
-                    "climatestation/jupyternotebook:latest")
+                    "climatestation/cstation:latest")
 
 readonly CSTATION_COMPOSE="${BASE_DIR}/docker-compose.yml"
 
@@ -100,9 +98,6 @@ function update-config-files()
 
     local CONFIG_FILENAME="$(basename "$CONFIG_FILE")"
 
-    local MYUSER=$(id -u)
-    local MYGROUP=$(id -g)
-
     if [[ -d "${CONFIG_FILE}" ]]; then
         echo -e "$(warning "WARNING"): Found a directory that already exists with"
         echo -e "          the same name as the '$(info "${CONFIG_FILENAME}")' file."
@@ -125,14 +120,8 @@ function update-config-files()
         echo
 
     fi
-
-    cat  >> "${CONFIG_FILE}" <<EOF
-
-USER_ID=${USER_ID:-$MYUSER}
-GROUP_ID=${GROUP_ID:-$MYGROUP}
-
-EOF
 }
+
 #TARGET_SYSTEM=$TARGET
 #TYPE_OF_INSTALLATION=$TYPE_OF_INSTALLATION
 
@@ -262,6 +251,9 @@ function cs_up()
 
     export TARGET_SYSTEM=$TARGET
     export TYPE_OF_INSTALLATION=$TYPE_OF_INSTALLATION
+    [[ "$USER_ID" ]] || USER_ID="$(id -u)"
+    [[ "$GROUP_ID" ]] || GROUP_ID="$(id -g)"
+    export USER_ID GROUP_ID
 
     if [[ -z "$(docker volume ls | awk '{ print $2 }' | grep -e "^cs-docker-postgresql12-volume$")" ]]
     then

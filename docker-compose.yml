@@ -4,13 +4,14 @@ services:
   web:
     env_file: ./.env
     environment:
-       CS_VERSION: "1.1.4"
-       TARGET_SYSTEM: ${TARGET_SYSTEM}
-       TYPE_OF_INSTALLATION: ${TYPE_OF_INSTALLATION}
-#    build:
-#      context: ./build-docker/web/
+      CS_VERSION: "1.1.4"
+      TARGET_SYSTEM: ${TARGET_SYSTEM}
+      TYPE_OF_INSTALLATION: ${TYPE_OF_INSTALLATION}
+      USER_ID: "${USER_ID}"
+      GROUP_ID: "${GROUP_ID}"
     container_name: web
-    image: "climatestation/web:2.0"
+    image: "climatestation/cstation:latest"
+    command: ["server"]
     depends_on:
       - postgres
       - hub
@@ -21,17 +22,24 @@ services:
       - 6767:6767
     restart: unless-stopped
     volumes:
+      - web_spooler:/var/local/spooler
       - ./log/web:/var/log/uwsgi
-      # - ./src:/var/www/climatestation:rw
       - ${DATA_VOLUME}:/data:rw
       - ${TMP_VOLUME}:/tmp/climatestation:rw
 
+
   hub:
     env_file: ./.env
-#    build:
-#      context: ./build-docker/jupyterhub/
     container_name: jupyterhub
-    image: "climatestation/jupyterhub:latest"
+    image: "climatestation/cstation:latest"
+    command: ["jupyterhub"]
+    working_dir: "/opt/jupyterhub"
+    environment:
+      USER_ID: "${USER_ID}"
+      GROUP_ID: "${GROUP_ID}"
+    ports:
+      - "8000"
+      - "8080"
     depends_on:
       - postgres
     restart: unless-stopped
@@ -42,6 +50,8 @@ services:
           - hub
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:rw
+      - jupyterhub_storage:/var/local/jupyterhub
+
 
   postgres:
     env_file: ./.env
@@ -75,11 +85,11 @@ services:
       - default
       - jupyterhub
     restart: unless-stopped
+    shm_size: 1gb
     volumes:
       - ${DATA_VOLUME}/static_data/db_dump:/data/static_data/db_dump:rw
       - cs-docker-postgresql12-volume:/var/lib/postgresql:rw
       - ./log/postgres:/var/log/climatestation:rw
-      # - ./src:/var/www/climatestation:rw
       # - /var/run/docker.sock:/var/run/docker.sock:rw
       # - ./postgresql:/var/lib/postgresql:rw
 
@@ -89,6 +99,9 @@ networks:
     external: true
 
 # create an external docker volume: docker volume create --name cs-docker-postgresql12-volume -d local
+
 volumes:
   cs-docker-postgresql12-volume:
     external: true
+  jupyterhub_storage:
+  web_spooler:
