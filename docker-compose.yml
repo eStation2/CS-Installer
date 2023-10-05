@@ -4,7 +4,7 @@ services:
   web:
     env_file: ./.env
     environment:
-      CS_VERSION: "1.1.4"
+      CS_VERSION: "1.2.0"
       TARGET_SYSTEM: ${TARGET_SYSTEM}
       TYPE_OF_INSTALLATION: ${TYPE_OF_INSTALLATION}
       USER_ID: "${USER_ID}"
@@ -26,7 +26,6 @@ services:
       - ./log/web:/var/log/uwsgi
       - ${DATA_VOLUME}:/data:rw
       - ${TMP_VOLUME}:/tmp/climatestation:rw
-
 
   hub:
     env_file: ./.env
@@ -58,7 +57,7 @@ services:
     container_name: postgres
     environment:
       TARGET_SYSTEM: ${TARGET_SYSTEM}
-      DB_VERSION: "114"
+      DB_VERSION: "120"
       PGPASSWORD: "mesadmin"
       POSTGRES_USER: "estation"
       POSTGRES_PASS: "mesadmin"
