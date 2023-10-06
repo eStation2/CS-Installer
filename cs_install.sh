@@ -239,6 +239,17 @@ function docker-create-volume()
     fi
 }
 
+function setup_variables()
+{
+    source "${DFLT_ENV_FILE}"
+
+    export TARGET_SYSTEM=$TARGET
+    export TYPE_OF_INSTALLATION=$TYPE_OF_INSTALLATION
+    [[ "$USER_ID" ]] || USER_ID="$(id -u)"
+    [[ "$GROUP_ID" ]] || GROUP_ID="$(id -g)"
+    export USER_ID GROUP_ID
+}
+
 function cs_up()
 {
 
@@ -248,13 +259,7 @@ function cs_up()
 
     check-config
 
-    source "${DFLT_ENV_FILE}"
-
-    export TARGET_SYSTEM=$TARGET
-    export TYPE_OF_INSTALLATION=$TYPE_OF_INSTALLATION
-    [[ "$USER_ID" ]] || USER_ID="$(id -u)"
-    [[ "$GROUP_ID" ]] || GROUP_ID="$(id -g)"
-    export USER_ID GROUP_ID
+    setup_variables
 
     if [[ -z "$(docker volume ls | awk '{ print $2 }' | grep -e "^cs-docker-postgresql12-volume$")" ]]
     then
@@ -302,6 +307,8 @@ function cs_up()
 
 function cs_down()
 {
+    setup_variables
+
     ${DOCKER_COMPOSE} -f  "${CSTATION_COMPOSE}" down
 
     if [  $( docker ps -a | grep ${IMPACT_NAME} | wc -l ) -gt 0 ]; then
