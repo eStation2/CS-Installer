@@ -175,17 +175,55 @@ function mount_drive()
     echo
 }
 
+function clone-repo-file()
+{
+    local TARGET="$1"
+    local LOCAL_PATH="$DATA_VOLUME/static_data/$TARGET"
+    local GITHUB_REPO="https://github.com/eStation2/$TARGET.git"
+
+    mkdir -p "$LOCAL_PATH"
+    pushd "$LOCAL_PATH"
+
+    git config --global --add safe.directory "$LOCAL_PATH"
+
+    if [[ ! -d ".git" ]]
+    then
+        info "Cloning ${GITHUB_REPO}..."
+        info "Cleaning directory $LOCAL_PATH"
+        rm -fr "$LOCAL_PATH/*"
+        if ! timeout 20 git clone $GITHUB_REPO . ; then
+            error "Error: git clone failed"
+        fi
+    else
+        info "Pulling ${GITHUB_REPO}..."
+        git stash
+        if ! timeout 20 git pull origin master ; then
+            error "Error: git pull failed"
+        fi
+    fi
+    popd
+    success "Remote data copied"
+}
+
 function pull_images()
 {
     local IMAGE_PREFIX=
-    [[ -n "${JRC_ENV}" ]] && IMAGE_PREFIX="${JRC_IMAGE_REGISTRY}/"
+    [[ "$JRC_ENV" ]] && IMAGE_PREFIX="$JRC_IMAGE_REGISTRY/"
 
+    info "Pulling new images from repository"
     for image in ${CS_IMAGES[@]}; do
         docker pull "${IMAGE_PREFIX}${image}" \
             || { error "Error: could not pull ${IMAGE_PREFIX}${image}"; exit; }
     done
 
     docker pull "${IMAGE_PREFIX}${IMPACT_IMAGE}"
+
+    info "Cloning data from climatestation repo"
+    clone-repo-file "layers"
+    clone-repo-file "logos"
+    clone-repo-file "docs"
+
+    success "Done."
 }
 
 function load_images()
@@ -242,24 +280,26 @@ function docker-create-volume()
 function setup_variables()
 {
     source "${DFLT_ENV_FILE}"
+    [[ "$DATA_VOLUME" ]] || { error "Error: no DATA_VOLUME defined"; exit 1; }
 
     export TARGET_SYSTEM=$TARGET
-    export TYPE_OF_INSTALLATION=$TYPE_OF_INSTALLATION
+    export TYPE_OF_INSTALLATION
     [[ "$USER_ID" ]] || USER_ID="$(id -u)"
     [[ "$GROUP_ID" ]] || GROUP_ID="$(id -g)"
     export USER_ID GROUP_ID
 }
 
+
 function cs_up()
 {
+    check-config
+
+    setup_variables
 
     [[ -n "$LOAD" ]] && load_images
 
     [[ -n "$PULL" ]] && pull_images
 
-    check-config
-
-    setup_variables
 
     if [[ -z "$(docker volume ls | awk '{ print $2 }' | grep -e "^cs-docker-postgresql12-volume$")" ]]
     then
