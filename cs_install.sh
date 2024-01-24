@@ -337,6 +337,8 @@ function cs_up()
     docker run -d \
         --env-file ${DFLT_ENV_FILE} \
         --env IMPACT_NGINX_PORT=${IMPACT_PORT} \
+        --env USER_ID=${USER_ID} \
+        --env GROUP_ID=${GROUP_ID} \
         -v ${IMPACT_DATA_VOLUME}:/data \
         -v ${REMOTE_DATA_VOLUME}:/remote_data \
         -p ${IMPACT_PORT}:8899 \
