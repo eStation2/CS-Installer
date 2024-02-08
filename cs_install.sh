@@ -191,13 +191,13 @@ function clone-repo-file()
         info "Cloning ${GITHUB_REPO}..."
         info "Cleaning directory $LOCAL_PATH"
         rm -fr "$LOCAL_PATH/*"
-        if ! timeout 20 git clone $GITHUB_REPO . ; then
+        if ! timeout 60 git clone -q --depth 1 --single-branch $GITHUB_REPO . ; then
             error "Error: git clone failed"
         fi
     else
         info "Pulling ${GITHUB_REPO}..."
         git stash
-        if ! timeout 20 git pull origin master ; then
+        if ! timeout 60 git pull origin master ; then
             error "Error: git pull failed"
         fi
     fi
