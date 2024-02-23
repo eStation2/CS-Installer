@@ -205,18 +205,43 @@ function clone-repo-file()
     success "Remote data copied"
 }
 
+function save_image_info()
+{
+    local IMAGE="$1"
+    local TIME="$2"
+    local BASE="$TMP_VOLUME/cs-install_install_reports"
+    local REPORT=Install_report_${TIME}.txt
+    local FORMAT
+
+    mkdir -p $BASE
+
+    read -d '' FORMAT <<'EOF'
+{{print "Id: " .Id}}
+{{print "Tag: " (index .RepoTags 0)}}
+Labels:
+{{range $name, $value := .Config.Labels}}{{println "  " $name "=" $value }}{{end}}
+EOF
+
+    docker inspect --format="$FORMAT" $IMAGE >>$BASE/$REPORT
+}
+
 function pull_images()
 {
+    local IMAGES=${CS_IMAGES[@]}
     local IMAGE_PREFIX=
+    local NOW=$(date -Iseconds)
+
     [[ "$JRC_ENV" ]] && IMAGE_PREFIX="$JRC_IMAGE_REGISTRY/"
 
+    IMAGES+=( "$IMPACT_IMAGE" )
+
     info "Pulling new images from repository"
-    for image in ${CS_IMAGES[@]}; do
+    for image in ${IMAGES[@]}; do
         docker pull "${IMAGE_PREFIX}${image}" \
             || { error "Error: could not pull ${IMAGE_PREFIX}${image}"; exit; }
-    done
 
-    docker pull "${IMAGE_PREFIX}${IMPACT_IMAGE}"
+        save_image_info "${IMAGE_PREFIX}${image}" $NOW
+    done
 
     info "Cloning data from climatestation repo"
     clone-repo-file "layers"
@@ -228,7 +253,12 @@ function pull_images()
 
 function load_images()
 {
-    echo "Trying to load images from directory $LOAD.."
+    local IMAGES=${CS_IMAGES[@]}
+    local NOW=$(date -Iseconds)
+
+    IMAGES+=( "$IMPACT_IMAGE" )
+
+    info "Trying to load images from directory $LOAD.."
 
     files=$(shopt -s nullglob dotglob; echo "$LOAD"/*.{tar,dump})
 
@@ -236,11 +266,15 @@ function load_images()
         for file in $files; do
             docker load -q -i "$file"
         done
-        echo "Done."
+        success "Done."
     else
-        echo "Error: could not find any file!"
+        error "Error: could not find any file!"
     fi
     echo
+
+    for image in ${IMAGES[@]}; do
+        save_image_info ${image} $NOW
+    done
 }
 
 function fix_perms()
