@@ -7,16 +7,16 @@ services:
       CS_VERSION: "1.2.1"
       TARGET_SYSTEM: ${TARGET_SYSTEM}
       TYPE_OF_INSTALLATION: ${TYPE_OF_INSTALLATION}
-      ROLE: ${ROLE}
-      MODE: ${MODE}
       USER_ID: "${USER_ID}"
       GROUP_ID: "${GROUP_ID}"
     container_name: web
     image: "climatestation/cstation:latest"
     command: ["server"]
     depends_on:
-      - postgres
-      - hub
+      postgres:
+        condition: "service_healthy"
+      hub:
+        condition: "service_started"
     networks:
       - default
     ports:
@@ -79,6 +79,11 @@ services:
     networks:
       - default
       - jupyterhub
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
     shm_size: 1gb
     volumes:
