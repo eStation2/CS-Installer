@@ -19,6 +19,7 @@ services:
         condition: "service_started"
     networks:
       - default
+      - TANetwork
     ports:
       - ${CS_WEBPORT}:8080
       - 6767:6767
@@ -28,6 +29,9 @@ services:
       - ./log/web:/var/log/uwsgi
       - ${DATA_VOLUME}:/data:rw
       - ${TMP_VOLUME}:/tmp/climatestation:rw
+      - /mnt/hdd/climsa/archives:/mnt/hdd/climsa/archives:rslave
+      - /mnt/share-archive:/mnt/share-archive:rslave
+      - /mnt/share-processing:/mnt/share-processing:rslave
 
   hub:
     env_file: ./.env
@@ -43,6 +47,7 @@ services:
     restart: unless-stopped
     networks:
       default:
+      TANetwork:
       jupyterhub:
         aliases:
           - hub
@@ -78,6 +83,7 @@ services:
       - ${CS_PGPORT}:5432
     networks:
       - default
+      - TANetwork
       - jupyterhub
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U postgres" ]
@@ -92,6 +98,8 @@ services:
       - ./log/postgres:/var/log/climatestation:rw
 
 networks:
+  TANetwork:
+    external: true
   default:
   jupyterhub:
     external: true
