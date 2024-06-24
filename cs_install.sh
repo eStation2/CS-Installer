@@ -40,6 +40,7 @@ readonly CSTATION_COMPOSE="${BASE_DIR}/docker-compose.yml"
 readonly IMPACT_IMAGE="mydronedocker/impact5:latest"
 readonly IMPACT_NAME="impact5"
 
+
 function success()
 {
     echo -e "\e[32m${1}\e[0m"
@@ -377,6 +378,7 @@ function cs_up()
         -v ${REMOTE_DATA_VOLUME}:/remote_data \
         -p ${IMPACT_PORT}:8899 \
         --name ${IMPACT_NAME} \
+        --restart unless-stopped \
         ${IMPACT_IMAGE}
 
 }
