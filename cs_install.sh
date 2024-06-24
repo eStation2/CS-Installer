@@ -377,6 +377,7 @@ function cs_up()
         -v ${REMOTE_DATA_VOLUME}:/remote_data \
         -p ${IMPACT_PORT}:8899 \
         --name ${IMPACT_NAME} \
+        --restart unless-stopped \
         ${IMPACT_IMAGE}
 
 }
