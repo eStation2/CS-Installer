@@ -166,10 +166,6 @@ A number of parameters (Figure above) can be customized to match the User’s en
 ●	CS_WEBPORT by default is 8080 in our installation, but if that port is already used by another service, you can modify it.
 
 
-### Mandatory:
-•	To have the Jupyter Notebook to work, you should edit the variable “SRC_DIR” with the working directory followed by “src”. The working directory is the directory where you cloned the Climate Station, eg. SRC_DIR=/opt/climatestation/src
-
-
 ## Building and Starting the Climate Station
 Now that the user settings have been corrected (if needed), we can build and start the Climate Station. Make sure that the internet connection is stable.
 
@@ -199,7 +195,7 @@ http://localhost:8080
 
 Check the existence of the following directories under the DATA directory indicated in the .env file, by default the /data directory on your host machine.
 
-On the first build and start of the Climate Station, using ./climatestation.sh (see section 3.3), the sub directories under the /data directory will be created as follows:
+On the first build and start of the Climate Station, using ./cs_install.sh (see section 3.3), the sub directories under the /data directory will be created as follows:
  
 The "data" directory will contain the directories:
 + processing
@@ -218,20 +214,8 @@ The "static_data" sub directory will contain the following directories:
  + requests
  + settings
 
-## Download of Static Data [Temp]
-The Climate Station uses vector layers (border, marine and other layers) that have to be downloaded and copied under the static_data folder in their respective subdirectories.
-
-You can download the static data (layers and logos) from the JRC SFTP server:
-
-    - host: srv-ies-ftp.jrc.it
-    - username: narmauser
-    - pwd: JRCkOq7478
-    - directory: /narma/eStation_2.0/static_data
-    
-sftp://narmauser:JRCkOq7478@srv-ies-ftp.jrc.it/narma/eStation_2.0/static_data
-
-Unzip the corresponding files in their respective directory under the static_data directory, see section above.
-
+## Historical archives 
+You can download the historical archives from the link here https://jeodpp.jrc.ec.europa.eu/ftp/private/zyWYcab3a/mv8byUkTRKjsA3JG/Shared/Archives-CS/ 
 
 ## Controlling the Climate Station Application
 
@@ -259,9 +243,10 @@ $ ./cs_install.sh up
  
 # UPGRADING THE CLIMATE STATION
 
-First go into the directory where the Climate Station has been cloned, shutdown CS and then pull the upgrade from git and start CS. 
+For upgrading the Climate Station version, the same script for its creation and control is used. You need to go into the directory where the Climate Station installer has been cloned, shutdown the containers and then pull the upgrade from git and re-build Climate Station, through the operations indicated below.
 
-OPEN A TERMINAL AND TYPE IN THE FOLLOWING COMMANDS: 
+●	Navigate to Climate Station folder where is source 
+
 ```bash
 $ cd <CS-Installer_dir>   (e.g. /opt/climatestation)
 ```
