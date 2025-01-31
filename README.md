@@ -250,11 +250,6 @@ For upgrading the Climate Station version, the same script for its creation and 
 ```bash
 $ cd <CS-Installer_dir>   (e.g. /opt/climatestation)
 ```
-●	Stop the Climate Station
-
-```bash
-$ ./cs_install.sh down
-```
 
 ●	Update the Climate Station
 
