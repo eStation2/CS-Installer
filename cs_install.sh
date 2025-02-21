@@ -65,7 +65,7 @@ function merge-files()
 {
     local NEW_TEMPLATE="$1"
     local OLD_CONF="$2"
-    
+
     local TEMPFILE=$(mktemp -q)
     [[ -w $TEMPFILE ]] || { error "Cannot create temp file"; exit 1; }
 
@@ -114,7 +114,7 @@ function update-config-files()
         cp -a "$CONFIG_FILE" "${CONFIG_FILE}.${OLD_VERSION}" && success "OK!" || { error "ERROR"; exit; }
         echo
         merge-files "$TEMPLATE_FILE" "$CONFIG_FILE" || exit
-        
+
     else
         echo -e "$(info "INFO"): Creating the default '$(info "${CONFIG_FILENAME}")' file from the template… \c"
         cp "${TEMPLATE_FILE}" "${CONFIG_FILE}" && success "OK!" || { error "ERROR"; exit; }
@@ -123,8 +123,6 @@ function update-config-files()
     fi
 }
 
-#TARGET_SYSTEM=$TARGET
-#TYPE_OF_INSTALLATION=$TYPE_OF_INSTALLATION
 
 function check-config()
 {
@@ -176,34 +174,25 @@ function mount_drive()
     echo
 }
 
-function clone-repo-file()
+function clone-repo-files()
 {
-    local TARGET="$1"
-    local LOCAL_PATH="$DATA_VOLUME/static_data/$TARGET"
-    local GITHUB_REPO="https://github.com/eStation2/$TARGET.git"
+    local SOURCE="https://jeodpp.jrc.ec.europa.eu/ftp/private/zyWYcab3a/mv8byUkTRKjsA3JG/Shared/Packages"
+    local COMMAND
+    local IMAGE="alpine:latest"
+    local LOG="/mnt/data/log/lftp_clone_repo.log"
 
-    mkdir -p "$LOCAL_PATH"
-    pushd "$LOCAL_PATH"
+    read -r -d '' COMMAND <<-EOM
+    apk update
+    apk add lftp
+    lftp -c "mirror -v --no-perms --no-umask --log $LOG $SOURCE/docs/ /mnt/data/docs ;
+    mirror -v --no-perms --no-umask --log $LOG $SOURCE/logos/ /mnt/data/logos ;
+    mirror -v --no-perms --no-umask --log $LOG $SOURCE/layers/ /mnt/data/layers"
+EOM
 
-    git config --global --add safe.directory "$LOCAL_PATH"
-
-    if [[ ! -d ".git" ]]
-    then
-        info "Cloning ${GITHUB_REPO}..."
-        info "Cleaning directory $LOCAL_PATH"
-        rm -fr "$LOCAL_PATH/*"
-        if ! timeout 60 git clone -q --depth 1 --single-branch $GITHUB_REPO . ; then
-            error "Error: git clone failed"
-        fi
-    else
-        info "Pulling ${GITHUB_REPO}..."
-        git stash
-        if ! timeout 60 git pull origin master ; then
-            error "Error: git pull failed"
-        fi
-    fi
-    popd
-    success "Remote data copied"
+    docker run --rm --env-file $DFLT_ENV_FILE \
+      -v "$DATA_VOLUME/static_data:/mnt/data" \
+      $IMAGE sh -c "$COMMAND" \
+    && success "Remote data copied"
 }
 
 function save_image_info()
@@ -245,10 +234,7 @@ function pull_images()
     done
 
     info "Cloning data from climatestation repo"
-    clone-repo-file "layers"
-    clone-repo-file "logos"
-    clone-repo-file "docs"
-
+    clone-repo-files
     success "Done."
 }
 
@@ -511,4 +497,18 @@ case "$TARGET" in
         ;;
 esac
 
-[[ ${1:-up} = "down" ]] && cs_down || cs_up
+case "${1:-up}" in
+    up)
+        cs_up
+        ;;
+    down)
+        cs_down
+        ;;
+    *)
+        echo "Unknown command: $1"
+        echo
+        usage
+        exit 1
+        ;;
+esac
+
