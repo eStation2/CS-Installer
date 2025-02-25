@@ -1,4 +1,4 @@
-version: '3.3'
+# version: '3.3'
 
 services:
   web:
@@ -61,7 +61,7 @@ services:
     container_name: postgres
     environment:
       TARGET_SYSTEM: ${TARGET_SYSTEM}
-      DB_VERSION: "131"
+      DB_VERSION: "132"
       PGPASSWORD: "mesadmin"
       POSTGRES_USER: "estation"
       POSTGRES_PASS: "mesadmin"
