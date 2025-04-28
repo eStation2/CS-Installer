@@ -4,7 +4,7 @@ services:
   web:
     env_file: ./.env
     environment:
-      CS_VERSION: "1.3.2"
+      CS_VERSION: "1.3.3"
       TARGET_SYSTEM: ${TARGET_SYSTEM}
       TYPE_OF_INSTALLATION: ${TYPE_OF_INSTALLATION}
       USER_ID: "${USER_ID}"
