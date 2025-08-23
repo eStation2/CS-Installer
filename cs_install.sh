@@ -32,14 +32,259 @@ readonly JRC_IMAGE_REGISTRY="d-prd-registry.jrc.it/d6-estation"
 readonly DFLT_ENV_FILE="${BASE_DIR}/.env"
 readonly TMPL_ENV_FILE="${BASE_DIR}/.env.template"
 
-readonly CS_IMAGES=("climatestation/postgis:2.0"
-                    "climatestation/cstation:latest")
+readonly CS_IMAGES=("climatestation/postgis:latest",
+                    "climatestation/cstation:2025.1.0"
+                    )
 
 readonly CSTATION_COMPOSE="${BASE_DIR}/docker-compose.yml"
+readonly CSTATION_COMPOSE_POSTGIS12="${BASE_DIR}/docker-compose_postgis12.yml"
 
 readonly IMPACT_IMAGE="mydronedocker/impact5:latest"
 readonly IMPACT_NAME="impact5"
 
+
+function db_migration_pending()
+{
+    # Checks if we're still running a version 12 postgis database
+    # returns 0 (success/true) if the migration is still to be performed
+    #         1 (failure/false) otherwise
+
+    # Check for the "fresh install" scenario.
+    if [[ -z "$(docker images -q climatestation/postgis:2.0)" ]]; then
+        return 1 # The migration is not needed, postgis 12 does not exist
+    fi
+ 
+    # Ensure DATA_VOLUME is defined in your script's environment
+    local full_path="$DATA_VOLUME/static_data/settings"
+    local full_path_file="$full_path/system_settings.ini"
+
+    # if the settings directory doesn't exist or isn't readable, this is a fresh install
+    if [[ ! -r "$full_path" ]]; then
+        # Fresh install. The /data and static_data directories have not been created
+        return 1 # Return false -> no db migration pending
+    fi
+
+    if [[ ! -r "$full_path_file" ]]; then
+        return 1 # Return false -> no db migration pending.
+    fi
+
+    # At this point, return 1 ONLY IF the file contains a line matching:
+    #   DB12_TO_DB17_MIGRATION_DONE = true
+    #
+    # Return 0 in ALL other cases, including:
+    #   - The key does not exist.
+    #   - The key's value is "false" or anything other than "true".
+    #
+    # Use quiet grep (-q) to check for an exact pattern match.
+    # The pattern looks for:
+    #   ^DB12_TO...        # Key at the start of the line
+    #   [[:space:]]*=...   # Optional whitespace around the =
+    #   ...true[[:space:]]*$ # The value "true" with optional trailing space at the end of the line
+    #
+    if grep -q -E "^db12_to_db17_migration_done[[:space:]]*=[[:space:]]*true[[:space:]]*$" "$full_path_file"; then
+        return 1  # Setting is explicitly true, so no migration pending
+    else
+        return 0  # It's false, commented out or missing: migration pending
+    fi
+}
+
+function set_db_migration_status() {
+    local settings_file="$1"
+    local value="$2"
+    local settings_path="$DATA_VOLUME/static_data/settings"
+    local full_path="${settings_path}/${settings_file}"
+    local key="db12_to_db17_migration_done"
+    local exit_code=0
+
+    # Pre-flight check: ensure the target file exists and is writable
+    if [[ ! -w "$full_path" ]]; then
+        echo "Error: Settings file does not exist or is not writable at '${full_path}'" >&2
+        return 1
+    fi
+
+    echo "Attempting to set '${key}' to '${value}' in '${full_path}'..."
+
+    awk -v key="$key" -v val="$value" '
+        BEGIN {
+            found=0        # whether key was found
+            in_section=0   # whether we are inside [SYSTEM_SETTINGS]
+        }
+        /^\[SYSTEM_SETTINGS\]/ {
+            in_section=1
+            print
+            next
+        }
+        /^\[.*\]/ {
+            # leaving SYSTEM_SETTINGS section
+            if (in_section && !found) {
+                print key " = " val
+                found=1
+            }
+            in_section=0
+            print
+            next
+        }
+        {
+            if (in_section && $0 ~ "^"key"[[:space:]]*=") {
+                print key " = " val
+                found=1
+            } else {
+                print
+            }
+        }
+        END {
+            # if SYSTEM_SETTINGS existed and key still not added, append it at the end of that section
+            if (in_section && !found) {
+                print key " = " val
+                found=1
+            }
+            # if SYSTEM_SETTINGS section never existed at all, add it
+            if (!found) {
+                print "[SYSTEM_SETTINGS]"
+                print key " = " val
+            }
+        }
+    ' "$full_path" > "${full_path}.tmp" && mv "${full_path}.tmp" "$full_path"
+    exit_code=$?
+
+    if [ $exit_code -ne 0 ]; then
+        echo "Error: Failed to update settings file '${full_path}'." >&2
+        return $exit_code
+    else
+        echo "Successfully set '${key} = ${value}'."
+        return 0
+    fi
+}
+
+function dump_db_postgresql12()
+{
+    # --- Configuration ---
+    local container_name="postgres"
+    local pg_user="estation"
+    local db_name="estationdb"
+    # Path inside the container
+    local dump_file_path="/data/static_data/db_dump/estationdb_backup_v12.dump"
+    local compose_file=$CSTATION_COMPOSE_POSTGIS12
+
+    # --- Pre-flight Checks ---
+ 
+    # 1. Check if the container is running
+    if ! docker ps --filter "name=^${container_name}$" --format '{{.Names}}' | grep -q "^${container_name}$"; then
+        info "Docker container '${container_name}' is not running. Starting climatestaion."
+        $DOCKER_COMPOSE -f "${compose_file}" up -d
+    fi
+    info "Making sure container ${container_name} is running."
+ 
+    # 2. Fix the DB structure of postgresql 12, there are trigger functions to move from public to climsoft schema.
+    #    Otherwise the pg_restore will go in error.
+    # Note: The `-i` flag in `docker exec` is essential for this to work.
+    # Logs will be created on the HOST machine, not in the container.
+    info "--- Starting Database Update (Pipe Method) ---"
+ 
+    if [ ! -f "./fix_db_structure.sql" ]; then
+        error "Error: Local SQL file not found at './fix_db_structure.sql'"
+        return 1
+    fi
+ 
+    # The '-i' flag keeps STDIN open, allowing us to pipe the file content.
+    # The exit code of 'docker exec' will be the exit code of 'psql'.
+    docker exec -i "$container_name" sh < ./fix_db_structure.sh
+ 
+    if [ $? -ne 0 ]; then
+        error "Error: psql command failed. Check './log/postgres/fix_db_structure.err' on the host."
+        return 1
+    else
+        success "Success. Check './log/postgres/fix_db_structure.log' on the host for details."
+    fi
+ 
+    # 2. Remove the old dump file to ensure we're not seeing a stale backup.
+    # We add `|| true` so the command doesn't fail if the file doesn't exist.
+    info "Attempting to remove old dump file at '${container_name}:${dump_file_path}'..."
+    docker exec "$container_name" rm -f "$dump_file_path" || true
+ 
+    # --- Main Operation ---
+    info "Starting pg_dump for database ${db_name}..."
+ 
+    # Execute the dump and capture its exit code immediately.
+    docker exec --user postgres "$container_name" pg_dump \
+        -U "$pg_user" \
+        -h localhost \
+        -p 5432 \
+        -d "$db_name" \
+        -F c \
+        -b \
+        -v \
+        -f "$dump_file_path" \
+        --exclude-schema=public \
+        --exclude-schema=cron
+
+    local exit_code=$?
+ 
+    # --- Post-flight Checks ---
+ 
+    # 3. Primary Check: Was the pg_dump command successful?
+    if [ $exit_code -ne 0 ]; then
+        error "Error: pg_dump command failed with exit code ${exit_code}."
+        return $exit_code
+    fi
+ 
+    # 4. Sanity Check: Does the file exist now and is it non-empty?
+    # `test -s` checks if a file exists AND has a size greater than zero.
+    if docker exec "$container_name" test -s "$dump_file_path"; then
+        success "Postgis 12 database dump file created and is not empty at '${container_name}:${dump_file_path}'"
+        $DOCKER_COMPOSE -f "${compose_file}" down
+        return 0
+    else
+        error "Error: Dump file was not created or is empty, despite pg_dump reporting success."
+        return 1
+    fi
+}
+
+function restore_db_postgresql12()
+{
+    # --- Configuration ---
+    local compose_file="${CSTATION_COMPOSE}"
+    local service_name="postgres" # The name of the service in your docker-compose file
+    local pg_user="estation"
+    local db_name="estationdb"
+    local dump_file_path="/data/static_data/db_dump/estationdb_backup_v12.dump"
+    local log_file_path="/data/static_data/db_dump/pg_restore_v12.log"
+    local exit_code=0
+
+    # Bring up the new database
+    #
+    ${DOCKER_COMPOSE} -f "${COMPOSE_FILE}" up -d $service_name \
+        && success "Bringing up the database" \
+        || { error "Error: could not start Database"; return 1; }
+
+    # Check if the dump file exists inside the container before we start.
+    #
+    if ! $DOCKER_COMPOSE -f "${compose_file}" exec "${service_name}" test -f "${dump_file_path}"; then
+        error "Error: Dump file not found inside container at '${service_name}:${dump_file_path}'"
+        return 1
+    fi
+
+    # --- Main Operation ---
+    info "Starting pg_restore for database '${db_name}'..."
+
+    # Execute the restore, redirecting output, and capture its exit code.
+    # The exit code of 'docker compose exec' will be the exit code of pg_restore.
+    #
+    docker compose -f "${compose_file}" exec -T --user postgres "${service_name}" \
+        bash -c "pg_restore -U ${pg_user} -h localhost -d ${db_name} -F c -v --clean --if-exists ${dump_file_path} &> ${log_file_path}"
+
+    exit_code=$?
+
+    # --- Post-flight Check ---
+    if [ $exit_code -ne 0 ]; then
+        error "Error: pg_restore command failed with exit code ${exit_code}."
+        error "Check logs inside the container at: ${service_name}:${log_file_path}"
+        return $exit_code
+    else
+        success "pg_restore command completed successfully."
+        return 0
+    fi
+}
 
 function success()
 {
@@ -219,23 +464,22 @@ function pull_images()
 {
     local IMAGES=${CS_IMAGES[@]}
     local IMAGE_PREFIX=
-    local NOW=$(date -Iseconds)
+    local pulled=0
 
     [[ "$JRC_ENV" ]] && IMAGE_PREFIX="$JRC_IMAGE_REGISTRY/"
 
     IMAGES+=( "$IMPACT_IMAGE" )
 
-    info "Pulling new images from repository"
     for image in ${IMAGES[@]}; do
-        docker pull "${IMAGE_PREFIX}${image}" \
-            || { error "Error: could not pull ${IMAGE_PREFIX}${image}"; exit; }
-
-        save_image_info "${IMAGE_PREFIX}${image}" $NOW
+        info "Pulling ${IMAGE_PREFIX}${image}"
+        docker pull --quiet "${IMAGE_PREFIX}${image}" \
+            || { error "Could not pull ${IMAGE_PREFIX}${image}"; pulled=1; }
     done
 
     info "Cloning data from climatestation repo"
     clone-repo-files
     success "Done."
+    return $pulled
 }
 
 function load_images()
@@ -254,14 +498,15 @@ function load_images()
             docker load -q -i "$file"
         done
         success "Done."
+        return 0
     else
         error "Error: could not find any file!"
+        return 1
     fi
-    echo
 
-    for image in ${IMAGES[@]}; do
-        save_image_info ${image} $NOW
-    done
+    # for image in ${IMAGES[@]}; do
+    #     save_image_info ${image} $NOW
+    # done
 }
 
 function fix_perms()
@@ -283,17 +528,14 @@ function fix_perms()
 
 function docker-create-volume()
 {
-    echo -e "$(info "INFO"): Creating a new Docker volume named '$(info "${1}")'… \c"
-    local ERRORS="$(docker volume create "${1}" 2>&1 > /dev/null)"
+    local volume_name="$1"
 
-    if [[ -z "${ERRORS}" ]]
+    echo -e "$(info "INFO"): Ensuring a docker volume named '$(info $volume_name)' exists"
+    local ERRORS="$(docker volume create $volume_name 2>&1)"
+    if [[ $? -ne 0 ]]
     then
-        success "OK!"
-    else
         error "ERROR!"
-
         echo "${ERRORS}"
-
         exit 8
     fi
 }
@@ -310,39 +552,87 @@ function setup_variables()
     export USER_ID GROUP_ID
 }
 
+function migrate_db()
+{
+    info "Starting DB backup."
+
+    dump_db_postgresql12
+
+    if [ $? -eq 0 ]; then
+        success "DB dump created in $DATA_VOLUME/static_data/db_dump/estationdb_backup_v12.dump"
+    else
+        error "ERROR: Backup operation failed. DB dump NOT created!"
+        return 1
+    fi
+
+    # First, ensure the "in-progress" status is set.
+    # If we can't even write to the settings file, we must stop.
+    if ! set_db_migration_status "system_settings.ini" "false"; then
+        error "FATAL: Could not set migration status to 'false'. Check file permissions. Aborting."
+        return 1
+    fi
+
+    # Now, call the restore function and CHECK ITS EXIT CODE.
+    if restore_db_postgresql12; then
+        success "Database restore completed successfully."
+
+        # If restore was successful, mark the migration as done.
+        info "Updating migration status to 'true'."
+        if set_db_migration_status "system_settings.ini" "true"; then
+            success "Migration procedure marked finished."
+        else
+            # This is a critical failure state. The DB is restored but the flag isn't set.
+            error "FATAL: Database was restored, but the migration completion flag could not be set."
+            error "Manual intervention is required. Please set DB12_TO_DB17_MIGRATION_DONE = true in system_settings.ini"
+            return 1
+        fi
+    else
+        # The restore function failed.
+        error "FATAL: The database restore failed. The system is in an inconsistent state."
+        error "The migration flag is set to 'false'. Please check logs and re-run after fixing the issue."
+        return 1
+    fi
+}
 
 function cs_up()
 {
+    local updated=
+
     check-config
 
     setup_variables
 
-    [[ -n "$LOAD" ]] && load_images
+    [[ -n "$LOAD" ]] && load_images && updated=t
 
-    [[ -n "$PULL" ]] && pull_images
+    [[ -n "$PULL" ]] && pull_images && updated=t
 
+    docker-create-volume "cs-docker-postgresql17-volume"
 
-    if [[ -z "$(docker volume ls | awk '{ print $2 }' | grep -e "^cs-docker-postgresql12-volume$")" ]]
-    then
-        docker-create-volume "cs-docker-postgresql12-volume"
-    fi
+    local network=$(docker network ls -q -f "name=jupyterhub")
+    [[ "$network" ]] || docker network create "jupyterhub"
 
-    if [[ -z "$(docker network ls | awk '{ print $2 }' | grep -e "^jupyterhub$")" ]]; then
-        docker network create "jupyterhub"
+    if [[ ( "$updated" || "$FORCE_MIGRATION" ) && db_migration_pending ]] ; then
+        info "Migration has not yet been completed. Starting the backup / restore procedure."
+        migrate_db
     fi
 
     [[ -n "$FIX" ]] && fix_perms
 
-    ${DOCKER_COMPOSE} -f "${CSTATION_COMPOSE}" up -d  \
-        && success "Climate Station is up" \
-        || { error "Error: could not start Climatestation"; exit; }
+    local COMPOSE_FILE=$CSTATION_COMPOSE
+
+    if db_migration_pending ; then
+        COMPOSE_FILE=$CSTATION_COMPOSE_POSTGIS12
+    fi
+
+    ${DOCKER_COMPOSE} -f "${COMPOSE_FILE}" up -d  \
+        && success "Climate Station is up" || error "Error: problems in starting Climatestation"
 
     if [[ -n "$INIT" ]]; then
         echo -e "$(info "INFO"): Waiting for the database containers to be ready to install updates… \c"
         sleep 10
         success "Ready"
 
-        ${DOCKER_COMPOSE} -f "${CSTATION_COMPOSE}" exec -T postgres bash /install_update_db.sh
+        ${DOCKER_COMPOSE} -f "${COMPOSE_FILE}" exec -T postgres bash /install_update_db.sh
     fi
 
     IMPACT_DATA_VOLUME=$DATA_VOLUME/impact
@@ -355,6 +645,7 @@ function cs_up()
           docker stop ${IMPACT_NAME}
           docker rm ${IMPACT_NAME}
     fi
+
     docker run -d \
         --env-file ${DFLT_ENV_FILE} \
         --env IMPACT_NGINX_PORT=${IMPACT_PORT} \
@@ -366,14 +657,19 @@ function cs_up()
         --name ${IMPACT_NAME} \
         --restart unless-stopped \
         ${IMPACT_IMAGE}
-
 }
 
 function cs_down()
 {
     setup_variables
 
-    ${DOCKER_COMPOSE} -f  "${CSTATION_COMPOSE}" down
+    local COMPOSE_FILE=$CSTATION_COMPOSE
+
+    if db_migration_pending ; then
+        COMPOSE_FILE=$CSTATION_COMPOSE_POSTGIS12
+    fi
+
+    ${DOCKER_COMPOSE} -f  "${COMPOSE_FILE}" down
 
     if [  $( docker ps -a | grep ${IMPACT_NAME} | wc -l ) -gt 0 ]; then
           docker stop ${IMPACT_NAME} && docker rm ${IMPACT_NAME}
@@ -401,7 +697,6 @@ EOF
 ### code starts here
 ###
 
-
 docker compose version &> /dev/null && DOCKER_COMPOSE="docker compose" || DOCKER_COMPOSE="docker-compose"
 
 readonly LONGOPTS=help,init,user:,group:,jrc,pull,fix_perms,load:,target_system:
@@ -428,6 +723,7 @@ FIX=
 LOAD=
 TARGET=climatestation
 TYPE_OF_INSTALLATION=full
+FORCE_MIGRATION=
 
 while true; do
     case "$1" in
@@ -467,6 +763,10 @@ while true; do
         -t|--target_system)
             TARGET="$2"
             shift 2
+            ;;
+        --force-migration)
+            FORCE_MIGRATION=t
+            shift
             ;;
         --)
             shift
