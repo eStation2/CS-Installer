@@ -23,6 +23,7 @@ services:
     restart: unless-stopped
     volumes:
       - web_spooler:/var/local/spooler
+      - pg_hba_conf:/etc/postgresql/17/main:rw
       - ./log/web:/var/log/uwsgi
       - ${DATA_VOLUME}:/data:rw
       - ${TMP_VOLUME}:/tmp/climatestation
@@ -89,6 +90,7 @@ services:
       - ${DATA_VOLUME}/static_data/db_dump:/data/static_data/db_dump:rw
       - cs-docker-postgresql17-volume:/var/lib/postgresql:rw
       - ./log/postgres:/var/log/climatestation:rw
+      - pg_hba_conf:/etc/postgresql/17/main:rw
 
 # create an external docker network: docker network create jupyterhub
 networks:
@@ -102,3 +104,4 @@ volumes:
     external: true
   jupyterhub_storage:
   web_spooler:
+  pg_hba_conf:

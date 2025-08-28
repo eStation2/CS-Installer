@@ -215,8 +215,10 @@ function dump_db_postgresql12()
         -b \
         -v \
         -f "$dump_file_path" \
-        --exclude-schema=public \
-        --exclude-schema=cron
+        --schema=products \
+        --schema=analysis \
+        --schema=climsoft \
+        --exclude-schema=bucardo
 
     local exit_code=$?
  
