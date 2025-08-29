@@ -181,8 +181,8 @@ function dump_db_postgresql12()
     # Logs will be created on the HOST machine, not in the container.
     info "--- Starting Database Update (Pipe Method) ---"
  
-    if [ ! -f "./fix_db_structure.sql" ]; then
-        error "Error: Local SQL file not found at './fix_db_structure.sql'"
+    if [ ! -f "./fix_db_structure.sh" ]; then
+        error "Error: Local SQL file not found at './fix_db_structure.sh'"
         return 1
     fi
  
@@ -255,7 +255,7 @@ function restore_db_postgresql12()
 
     # Bring up the new database
     #
-    ${DOCKER_COMPOSE} -f "${COMPOSE_FILE}" up -d $service_name \
+    ${DOCKER_COMPOSE} -f "${compose_file}" up -d \
         && success "Bringing up the database" \
         || { error "Error: could not start Database"; return 1; }
 
