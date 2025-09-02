@@ -32,7 +32,7 @@ readonly JRC_IMAGE_REGISTRY="d-prd-registry.jrc.it/d6-estation"
 readonly DFLT_ENV_FILE="${BASE_DIR}/.env"
 readonly TMPL_ENV_FILE="${BASE_DIR}/.env.template"
 
-readonly CS_IMAGES=("climatestation/postgis:latest",
+readonly CS_IMAGES=("climatestation/postgis:latest"
                     "climatestation/cstation:2025.1.0"
                     )
 
@@ -474,7 +474,7 @@ function pull_images()
 
     for image in ${IMAGES[@]}; do
         info "Pulling ${IMAGE_PREFIX}${image}"
-        docker pull --quiet "${IMAGE_PREFIX}${image}" \
+        docker pull "${IMAGE_PREFIX}${image}" \
             || { error "Could not pull ${IMAGE_PREFIX}${image}"; pulled=1; }
     done
 
