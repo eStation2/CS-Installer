@@ -51,7 +51,8 @@ function db_migration_pending()
 
     # Check for the "fresh install" scenario.
     if [[ -z "$(docker images -q climatestation/postgis:2.0)" ]]; then
-        return 1 # The migration is not needed, postgis 12 does not exist
+        # The migration is not needed, postgis 12 does not exist
+        return 1
     fi
  
     # Ensure DATA_VOLUME is defined in your script's environment
@@ -65,7 +66,8 @@ function db_migration_pending()
     fi
 
     if [[ ! -r "$full_path_file" ]]; then
-        return 1 # Return false -> no db migration pending.
+        # Return false -> no db migration pending.
+        return 1
     fi
 
     # At this point, return 1 ONLY IF the file contains a line matching:
@@ -81,10 +83,13 @@ function db_migration_pending()
     #   [[:space:]]*=...   # Optional whitespace around the =
     #   ...true[[:space:]]*$ # The value "true" with optional trailing space at the end of the line
     #
+
     if grep -q -E "^db12_to_db17_migration_done[[:space:]]*=[[:space:]]*true[[:space:]]*$" "$full_path_file"; then
-        return 1  # Setting is explicitly true, so no migration pending
+        # Setting is explicitly true, so no migration pending
+        return 1
     else
-        return 0  # It's false, commented out or missing: migration pending
+        # It's false, commented out or missing: migration pending
+        return 0
     fi
 }
 
@@ -599,6 +604,7 @@ function migrate_db()
 function cs_up()
 {
     local updated=
+    local COMPOSE_FILE=$CSTATION_COMPOSE
 
     check-config
 
@@ -613,14 +619,14 @@ function cs_up()
     local network=$(docker network ls -q -f "name=jupyterhub")
     [[ "$network" ]] || docker network create "jupyterhub"
 
-    if [[ ( "$updated" || "$FORCE_MIGRATION" ) && db_migration_pending ]] ; then
-        info "Migration has not yet been completed. Starting the backup / restore procedure."
-        migrate_db
+    if [[ "$updated" || "$FORCE_MIGRATION" ]] ; then
+        if db_migration_pending; then
+            info "Migration has not yet been completed. Starting the backup / restore procedure."
+            migrate_db
+        fi
     fi
 
     [[ -n "$FIX" ]] && fix_perms
-
-    local COMPOSE_FILE=$CSTATION_COMPOSE
 
     if db_migration_pending ; then
         COMPOSE_FILE=$CSTATION_COMPOSE_POSTGIS12
