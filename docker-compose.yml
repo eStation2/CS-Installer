@@ -31,7 +31,7 @@ services:
   hub:
     env_file: ./.env
     container_name: jupyterhub
-    image: "climatestation/cstation:2025.1.0"
+    image: "climatestation/cstation:latest"
     command: ["jupyterhub"]
     working_dir: "/opt/jupyterhub"
     environment:
