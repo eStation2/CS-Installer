@@ -33,7 +33,7 @@ readonly DFLT_ENV_FILE="${BASE_DIR}/.env"
 readonly TMPL_ENV_FILE="${BASE_DIR}/.env.template"
 
 readonly CS_IMAGES=("climatestation/postgis:latest"
-                    "climatestation/cstation:2025.1.0"
+                    "climatestation/cstation:latest"
                     )
 
 readonly CSTATION_COMPOSE="${BASE_DIR}/docker-compose.yml"

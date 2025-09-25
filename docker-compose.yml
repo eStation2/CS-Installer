@@ -9,7 +9,7 @@ services:
       USER_ID: "${USER_ID}"
       GROUP_ID: "${GROUP_ID}"
     container_name: web
-    image: "climatestation/cstation:2025.1.0"
+    image: "climatestation/cstation:latest"
     command: ["server"]
     depends_on:
       postgres:
