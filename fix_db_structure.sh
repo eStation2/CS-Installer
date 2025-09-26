@@ -3,7 +3,7 @@
 readonly LOGFILE="/var/log/climatestation/fix_db_structure.log"
 readonly ERRFILE="/var/log/climatestation/fix_db_structure.err"
 
-psql -h localhost -U estation -d estationdb -w > $LOGFILE 2> $ERRFILE <<EOF
+psql -h localhost -U estation -d estationdb -w > $LOGFILE 2> $ERRFILE <<'EOF'
   SET statement_timeout = 0;
   SET lock_timeout = 0;
   SET client_encoding = 'UTF8';
