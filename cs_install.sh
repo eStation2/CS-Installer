@@ -168,7 +168,7 @@ function dump_db_postgresql12()
     local pg_user="estation"
     local db_name="estationdb"
     # Path inside the container
-    local dump_file_path="/data/static_data/db_dump/estationdb_backup_v12.dump"
+    local dump_file_path="$DATA_VOLUME/static_data/db_dump/estationdb_backup_v12.dump"
     local compose_file=$CSTATION_COMPOSE_POSTGIS12
 
     # --- Pre-flight Checks ---
@@ -254,8 +254,8 @@ function restore_db_postgresql12()
     local service_name="postgres" # The name of the service in your docker-compose file
     local pg_user="estation"
     local db_name="estationdb"
-    local dump_file_path="/data/static_data/db_dump/estationdb_backup_v12.dump"
-    local log_file_path="/data/static_data/db_dump/pg_restore_v12.log"
+    local dump_file_path="$DATA_VOLUME/static_data/db_dump/estationdb_backup_v12.dump"
+    local log_file_path="$DATA_VOLUME/static_data/db_dump/pg_restore_v12.log"
     local exit_code=0
 
     # Bring up the new database
