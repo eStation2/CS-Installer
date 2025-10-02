@@ -483,9 +483,13 @@ function pull_images()
             || { error "Could not pull ${IMAGE_PREFIX}${image}"; pulled=1; }
     done
 
-    info "Cloning data from climatestation repo"
-    clone-repo-files
-    success "Done."
+    if [[ -z "$NO_REPO_FILES" ]] ; then
+        info "Cloning data from climatestation repo"
+        clone-repo-files
+        success "Done."
+    else
+        info "Skipping cloning data from climatestation repo"
+    fi
     return $pulled
 }
 
@@ -697,6 +701,7 @@ Usage: $0
    [ -p | --pull ] pull images from public registry
    [ -f | --fix_perms ] fix fileystem permissions
    [ -t | --target_system ] <climatestation (default) | estation>
+   [ --no-repo-files] do not clone repo files
    <up (default) | down>
 EOF
 }
@@ -707,7 +712,7 @@ EOF
 
 docker compose version &> /dev/null && DOCKER_COMPOSE="docker compose" || DOCKER_COMPOSE="docker-compose"
 
-readonly LONGOPTS=help,init,user:,group:,jrc,pull,fix_perms,load:,target_system:
+readonly LONGOPTS=help,init,user:,group:,jrc,pull,fix_perms,load:,target_system:,no-repo-files,force-migration
 readonly OPTIONS=hiu:g:jpfl:t:
 
 # Parsing command line options:
@@ -732,6 +737,7 @@ LOAD=
 TARGET=climatestation
 TYPE_OF_INSTALLATION=full
 FORCE_MIGRATION=
+NO_REPO_FILES=
 
 while true; do
     case "$1" in
@@ -774,6 +780,10 @@ while true; do
             ;;
         --force-migration)
             FORCE_MIGRATION=t
+            shift
+            ;;
+        --no-repo-files)
+            NO_REPO_FILES=t
             shift
             ;;
         --)
@@ -819,4 +829,4 @@ case "${1:-up}" in
         exit 1
         ;;
 esac
-
+# End of script
