@@ -51,7 +51,7 @@ The Climate stations define 3 distinct versions, as below
 
 Software Version: 1.4.0 (is the main version, visible in the header of every page)
 
-Database Version: 141 (PostgreSQL DB version, as displayed in the System page)
+Database Version: 142 (PostgreSQL DB version, as displayed in the System page)
 
 Configuration Version: 1.1.3 (internal only)
 
