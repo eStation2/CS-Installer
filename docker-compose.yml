@@ -55,7 +55,7 @@ services:
     container_name: postgres
     environment:
       TARGET_SYSTEM: ${TARGET_SYSTEM}
-      DB_VERSION: "141"
+      DB_VERSION: "142"
       PGPASSWORD: "mesadmin"
       POSTGRES_USER: "estation"
       POSTGRES_PASS: "mesadmin"
