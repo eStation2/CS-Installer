@@ -1,15 +1,13 @@
-# Climate Station - Python 3.8.10 in Docker 
+# Climate Station - Python 3.12 in Docker 
 ## Introduction
 
-This installation contains the Climate Station code (from the master branch) converted to Python 3.7 or higher
-For the database PostgreSQL 12 is used, for which the code had to be adapted to the latest version of SQLAlchemy.
+This installation contains the Climate Station code converted to Python 3.12.
+For the database PostgreSQL 17 is used.
 
 ## Software requirements
 The Climate Station (CS) installer needs the following software packages to be installed on the host machine: 
 
-•	Docker engine (version 19.03+)
-
-•	Docker compose (version 1.29+)
+•	Docker engine (version 28.03+)
 
 •	Git (version 2.22+)
 
@@ -38,25 +36,6 @@ Docker Engine
 Please follow the installation instructions for the OS on your host machine: 
 https://docs.docker.com/engine/install/  
 
-Docker-compose
-Installation instructions: 
-https://docs.docker.com/compose/install/  
-https://pypi.org/project/docker-compose/ 
-
-●  Install the required packages and dependencies:
-
-```bash
-	$ sudo yum install python3-pip
-	$ sudo yum install rust
-	$ sudo pip3 install –upgrade pip
-	$ sudo pip3 install setuptools
-	$ sudo pip3 install setuptools-rust
-```
-●  Install docker-compose:	
-
-```bash
-	$ sudo pip3 install docker-compose
-```
 Once the installation is completed, check if it is installed fine by checking its version in the command prompt as follows:
 
 ●	Docker engine → docker --version
@@ -65,11 +44,6 @@ Once the installation is completed, check if it is installed fine by checking it
         Docker version 20.10.14, build a224086
 ```
 
-●	Docker Compose → docker-compose --version
-```bash
-		$ docker-compose --version
-        docker-compose version 1.28.5, build unknown
-```
  
 ## Installation of GIT
 The Climate Station installation package is made available in the git, so in order to install it you have to install git  in your machine either as root user or as a user (eg. adminuser) with sudo rights. For example if you’re on a Debian-based distribution, such as Ubuntu, try apt:
