@@ -1,10 +1,10 @@
-Release Note for ClimSA Station version 1.4.0
+# Release Note for ClimSA Station version 1.4.0
 
 This Note describes the main modifications contained in version 1.4.0, with respect to the features (Section 1), the datasets treated on the system (Section 2) and the bug fixing changes (Section 3).
 
 # FEATURES
 
-## SystemTechnology Stack
+## System Technology Stack
 
 - The PostgreSQL database has been migrated from version 12.1 to version 17.6.
 - Python version is upgraded from version 3.8.5 to version 3.12.3
@@ -44,6 +44,9 @@ Several bugs were identified by JRC or indicated by the Users during the trainin
 
 - The legend is displayed while downloading the map as PNG.
 - Legend visualization on the Matrix graphs are adjusted.
+ 
+
+___
 
 **NOTE on versioning**
 
@@ -51,7 +54,7 @@ The Climate stations define 3 distinct versions, as below
 
 Software Version: 1.4.0 (is the main version, visible in the header of every page)
 
-Database Version: 141 (PostgreSQL DB version, as displayed in the System page)
+Database Version: 142 (PostgreSQL DB version, as displayed in the System page)
 
 Configuration Version: 1.1.3 (internal only)
 
