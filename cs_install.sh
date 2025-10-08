@@ -186,14 +186,14 @@ function dump_db_postgresql12()
     # Logs will be created on the HOST machine, not in the container.
     info "--- Starting Database Update (Pipe Method) ---"
  
-    if [ ! -f "./fix_db_structure.sh" ]; then
-        error "Error: Local SQL file not found at './fix_db_structure.sh'"
+    if [ ! -f "${BASE_DIR}/fix_db_structure.sh" ]; then
+        error "Error: Local SQL file not found at ${BASE_DIR}/fix_db_structure.sh"
         return 1
     fi
  
     # The '-i' flag keeps STDIN open, allowing us to pipe the file content.
     # The exit code of 'docker exec' will be the exit code of 'psql'.
-    docker exec -i "$container_name" sh < ./fix_db_structure.sh
+    docker exec -i "$container_name" sh < "${BASE_DIR}/fix_db_structure.sh"
  
     if [ $? -ne 0 ]; then
         error "Error: psql command failed. Check './log/postgres/fix_db_structure.err' on the host."
