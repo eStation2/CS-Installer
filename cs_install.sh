@@ -239,7 +239,7 @@ function dump_db_postgresql12()
         --schema=products \
         --schema=analysis \
         --schema=climsoft \
-        --exclude-schema=bucardo
+        --schema=bucardo
 
     local exit_code=$?
  

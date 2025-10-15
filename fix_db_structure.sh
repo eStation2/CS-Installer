@@ -208,5 +208,19 @@ psql -h localhost -U estation -d estationdb -w > $LOGFILE 2> $ERRFILE <<'EOF'
 
   ALTER TABLE climsoft.observationfinal
       ALTER COLUMN obsvalue TYPE numeric (12, 2);
+
+  DELETE FROM analysis.user_workspaces WHERE userid = 'jrc_ref';
+
+  DELETE FROM analysis.user_graph_templates WHERE workspaceid not in (SELECT workspaceid FROM analysis.user_workspaces);
+
+  DELETE FROM analysis.user_graph_tpl_drawproperties WHERE graph_tpl_id not in (SELECT graph_tpl_id FROM analysis.user_graph_templates);
+
+  DELETE FROM analysis.user_graph_tpl_timeseries_drawproperties WHERE graph_tpl_id not in (SELECT graph_tpl_id FROM analysis.user_graph_templates);
+
+  DELETE FROM analysis.user_graph_tpl_yaxes WHERE graph_tpl_id not in (SELECT graph_tpl_id FROM analysis.user_graph_templates);
+
+  DELETE FROM analysis.user_map_templates WHERE workspaceid not in (SELECT workspaceid FROM analysis.user_workspaces);
+
+
 EOF
     
