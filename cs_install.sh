@@ -176,7 +176,23 @@ function dump_db_postgresql12()
     # 1. Check if the container is running
     if ! docker ps --filter "name=^${container_name}$" --format '{{.Names}}' | grep -q "^${container_name}$"; then
         info "Docker container '${container_name}' is not running. Starting climatestaion."
-        $DOCKER_COMPOSE -f "${compose_file}" up -d
+        # $DOCKER_COMPOSE -f "${compose_file}" up -d
+
+        # Start only postgres and wait for it to be healthy
+        $DOCKER_COMPOSE -f "${compose_file}" up -d postgres
+
+        # Wait for the healthcheck to pass
+        info "Waiting for postgres to be healthy..."
+        timeout=60
+        elapsed=0
+        while [ $elapsed -lt $timeout ]; do
+            if [ "$(docker inspect --format='{{.State.Health.Status}}' postgres)" = "healthy" ]; then
+                success "Postgres is healthy and ready"
+                break
+            fi
+            sleep 2
+            elapsed=$((elapsed + 2))
+        done
     fi
     info "Making sure container ${container_name} is running."
  
@@ -260,9 +276,22 @@ function restore_db_postgresql12()
 
     # Bring up the new database
     #
-    ${DOCKER_COMPOSE} -f "${compose_file}" up -d \
+    ${DOCKER_COMPOSE} -f "${compose_file}" up -d postgres \
         && success "Bringing up the database" \
         || { error "Error: could not start Database"; return 1; }
+
+    # Wait for the healthcheck to pass
+    info "Waiting for postgres to be healthy..."
+    timeout=60
+    elapsed=0
+    while [ $elapsed -lt $timeout ]; do
+        if [ "$(docker inspect --format='{{.State.Health.Status}}' postgres)" = "healthy" ]; then
+            success "Postgres is healthy and ready"
+            break
+        fi
+        sleep 2
+        elapsed=$((elapsed + 2))
+    done
 
     # Check if the dump file exists inside the container before we start.
     #
