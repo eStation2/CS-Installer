@@ -1,0 +1,107 @@
+
+services:
+  web:
+    env_file: ./.env
+    environment:
+      CS_VERSION: "1.4.0"
+      TARGET_SYSTEM: ${TARGET_SYSTEM}
+      TYPE_OF_INSTALLATION: ${TYPE_OF_INSTALLATION}
+      USER_ID: "${USER_ID}"
+      GROUP_ID: "${GROUP_ID}"
+    container_name: web
+    image: "climatestation/cstation:latest"
+    command: ["server"]
+    depends_on:
+      postgres:
+        condition: "service_healthy"
+      hub:
+        condition: "service_started"
+    networks:
+      - default
+    ports:
+      - ${CS_WEBPORT}:8080
+    restart: unless-stopped
+    volumes:
+      - web_spooler:/var/local/spooler
+      - pg_hba_conf:/etc/postgresql/17/main:rw
+      - ./log/web:/var/log/uwsgi
+      - ${DATA_VOLUME}:/data:rw
+      - ${TMP_VOLUME}:/tmp/climatestation
+
+  hub:
+    env_file: ./.env
+    container_name: jupyterhub
+    image: "climatestation/cstation:latest"
+    command: ["jupyterhub"]
+    working_dir: "/opt/jupyterhub"
+    environment:
+      USER_ID: "${USER_ID}"
+      GROUP_ID: "${GROUP_ID}"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    networks:
+      default:
+      jupyterhub:
+        aliases:
+          - hub
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+      - jupyterhub_storage:/var/local/jupyterhub
+      - ${TMP_VOLUME}:/tmp/climatestation
+
+  postgres:
+    env_file: ./.env
+    container_name: postgres
+    environment:
+      TARGET_SYSTEM: ${TARGET_SYSTEM}
+      DB_VERSION: "142"
+      PGPASSWORD: "mesadmin"
+      POSTGRES_USER: "estation"
+      POSTGRES_PASS: "mesadmin"
+      POSTGRES_DBNAME: "estationdb"
+      POSTGRES_PORT: "5432"
+      DEFAULT_ENCODING: "UTF8"
+      DEFAULT_COLLATION: "en_US.UTF-8"
+      DEFAULT_CTYPE: "en_US.UTF-8"
+      POSTGRES_MULTIPLE_EXTENSIONS: "postgis,plperl,plperlu"
+      POSTGRES_TEMPLATE_EXTENSIONS: "true"
+      POSTGRES_HOST_AUTH_METHOD: "trust"
+      WAL_SIZE: "4GB"
+      MIN_WAL_SIZE: "2048MB"
+      WAL_SEGSIZE: "1024"
+      MAINTAINANCE_WORK_MEM: "1320MB"
+      EXTRA_CONF: "max_connections=500\\nshared_buffers=1024MB\\nwork_mem=128MB"
+    image: "climatestation/postgis:latest"
+    ports:
+      - ${CS_PGPORT}:5432
+    networks:
+      - default
+      - jupyterhub
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -h postgres -p 5432 -d estationdb -U estation" ]
+      interval: 12s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    shm_size: 1gb
+    volumes:
+      - ${DATA_VOLUME}/static_data/db_dump:/data/static_data/db_dump:rw
+      - cs-docker-postgresql17-volume:/var/lib/postgresql:rw
+      - ./log/postgres:/var/log/climatestation:rw
+      - pg_hba_conf:/etc/postgresql/17/main:rw
+
+# create an external docker network: docker network create jupyterhub
+networks:
+  default:
+  jupyterhub:
+    external: true
+
+# create an external docker volume: docker volume create --name cs-docker-postgresql17-volume -d local
+volumes:
+  cs-docker-postgresql17-volume:
+    external: true
+  jupyterhub_storage:
+  web_spooler:
+  pg_hba_conf:
