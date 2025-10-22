@@ -176,7 +176,6 @@ function dump_db_postgresql12()
     # 1. Check if the container is running
     if ! docker ps --filter "name=^${container_name}$" --format '{{.Names}}' | grep -q "^${container_name}$"; then
         info "Docker container '${container_name}' is not running. Starting climatestaion."
-        # $DOCKER_COMPOSE -f "${compose_file}" up -d
 
         # Start only postgres and wait for it to be healthy
         $DOCKER_COMPOSE -f "${compose_file}" up -d postgres
@@ -592,6 +591,15 @@ function setup_variables()
     export USER_ID GROUP_ID
 }
 
+function clean_hub_db()
+{
+    info "Shutting down jupyterhub service"
+    $DOCKER_COMPOSE -f "$CSTATION_COMPOSE" down hub
+    
+    warning "Cleaning existing jupyterhub sqlite database"
+    $DOCKER_COMPOSE -f "$CSTATION_COMPOSE" run --rm --no-deps --entrypoint "" hub bash -c 'rm -f /var/local/jupyterhub/*'
+}
+
 function migrate_db()
 {
     info "Starting DB backup."
@@ -656,7 +664,12 @@ function cs_up()
         if db_migration_pending; then
             info "Migration has not yet been completed. Starting the backup / restore procedure."
             migrate_db
+            clean_hub_db
         fi
+    fi
+
+    if [[ "$CLEAN_HUB_DB" ]]; then
+        clean_hub_db
     fi
 
     [[ -n "$FIX" ]] && fix_perms
@@ -741,7 +754,7 @@ EOF
 
 docker compose version &> /dev/null && DOCKER_COMPOSE="docker compose" || DOCKER_COMPOSE="docker-compose"
 
-readonly LONGOPTS=help,init,user:,group:,jrc,pull,fix_perms,load:,target_system:,no-repo-files,force-migration
+readonly LONGOPTS=help,init,user:,group:,jrc,pull,fix_perms,load:,target_system:,no-repo-files,force-migration,clean-hub-db
 readonly OPTIONS=hiu:g:jpfl:t:
 
 # Parsing command line options:
@@ -767,6 +780,7 @@ TARGET=climatestation
 TYPE_OF_INSTALLATION=full
 FORCE_MIGRATION=
 NO_REPO_FILES=
+CLEAN_HUB_DB=
 
 while true; do
     case "$1" in
@@ -813,6 +827,10 @@ while true; do
             ;;
         --no-repo-files)
             NO_REPO_FILES=t
+            shift
+            ;;
+        --clean-hub-db)
+            CLEAN_HUB_DB=t
             shift
             ;;
         --)
