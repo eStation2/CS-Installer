@@ -675,6 +675,7 @@ function cs_up()
     [[ -n "$FIX" ]] && fix_perms
 
     if db_migration_pending ; then
+        warning "Using obsolete $CSTATION_COMPOSE_POSTGIS12 file."
         COMPOSE_FILE=$CSTATION_COMPOSE_POSTGIS12
     fi
 
