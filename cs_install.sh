@@ -729,6 +729,12 @@ function cs_down()
     if [  $( docker ps -a | grep ${IMPACT_NAME} | wc -l ) -gt 0 ]; then
           docker stop ${IMPACT_NAME} && docker rm ${IMPACT_NAME}
     fi
+
+    local NOTEBOOKS=$(docker ps --all --filter "name=jupyter-" --quiet)
+
+    for notebook in $NOTEBOOKS; do
+        docker stop $notebook
+    done
 }
 
 
