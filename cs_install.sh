@@ -858,7 +858,7 @@ if [[ $# -gt 1 ]]; then
 fi
 
 case "$TARGET" in
-    climatestation|estation)
+    climatestation|estation|copernicus)
         # ok
         ;;
     *)
