@@ -223,4 +223,3 @@ psql -h localhost -U estation -d estationdb -w > $LOGFILE 2> $ERRFILE <<'EOF'
 
 
 EOF
-    

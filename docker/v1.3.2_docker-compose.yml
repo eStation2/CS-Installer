@@ -1,4 +1,3 @@
-# version: '3.3'
 
 services:
   web:
@@ -26,7 +25,7 @@ services:
     restart: unless-stopped
     volumes:
       - web_spooler:/var/local/spooler
-      - ./log/web:/var/log/uwsgi
+      - /data/logs/climsa-web:/var/log/uwsgi
       - ${DATA_VOLUME}:/data:rw
       - ${TMP_VOLUME}:/tmp/climatestation:rw
       - /mnt/hdd/climsa/archives:/mnt/hdd/climsa/archives:rslave
@@ -95,7 +94,7 @@ services:
     volumes:
       - ${DATA_VOLUME}/static_data/db_dump:/data/static_data/db_dump:rw
       - cs-docker-postgresql12-volume:/var/lib/postgresql:rw
-      - ./log/postgres:/var/log/climatestation:rw
+      - /data/logs/climsa-postgres:/var/log/climatestation:rw
 
 networks:
   TANetwork:
