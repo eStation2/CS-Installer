@@ -1,9 +1,8 @@
-
 services:
   web:
     env_file: ./.env
     environment:
-      CS_VERSION: "1.4.0"
+      CS_VERSION: "1.4.1"
       TARGET_SYSTEM: ${TARGET_SYSTEM}
       TYPE_OF_INSTALLATION: ${TYPE_OF_INSTALLATION}
       USER_ID: "${USER_ID}"
@@ -55,7 +54,7 @@ services:
     container_name: postgres
     environment:
       TARGET_SYSTEM: ${TARGET_SYSTEM}
-      DB_VERSION: "142"
+      DB_VERSION: "143"
       PGPASSWORD: "mesadmin"
       POSTGRES_USER: "estation"
       POSTGRES_PASS: "mesadmin"
@@ -79,7 +78,11 @@ services:
       - default
       - jupyterhub
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -h postgres -p 5432 -d estationdb -U estation" ]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -h postgres -p 5432 -d estationdb -U estation",
+        ]
       interval: 12s
       timeout: 10s
       retries: 5
