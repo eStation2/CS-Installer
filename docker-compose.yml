@@ -2,7 +2,7 @@ services:
   web:
     env_file: ./.env
     environment:
-      CS_VERSION: "1.4.2"
+      CS_VERSION: "1.5.0"
       TARGET_SYSTEM: ${TARGET_SYSTEM}
       TYPE_OF_INSTALLATION: ${TYPE_OF_INSTALLATION}
       USER_ID: "${USER_ID}"
@@ -30,7 +30,7 @@ services:
   hub:
     env_file: ./.env
     container_name: jupyterhub
-    image: "climatestation/cstation:latest"
+    image: "climatestation/cstation:develop"
     command: ["jupyterhub"]
     working_dir: "/opt/jupyterhub"
     environment:
@@ -54,7 +54,7 @@ services:
     container_name: postgres
     environment:
       TARGET_SYSTEM: ${TARGET_SYSTEM}
-      DB_VERSION: "144"
+      DB_VERSION: "146"
       PGPASSWORD: "mesadmin"
       POSTGRES_USER: "estation"
       POSTGRES_PASS: "mesadmin"
@@ -71,7 +71,7 @@ services:
       WAL_SEGSIZE: "1024"
       MAINTAINANCE_WORK_MEM: "1320MB"
       EXTRA_CONF: "max_connections=500\\nshared_buffers=1024MB\\nwork_mem=128MB"
-    image: "climatestation/postgis:latest"
+    image: "climatestation/postgis:develop"
     ports:
       - ${CS_PGPORT}:5432
     networks:
