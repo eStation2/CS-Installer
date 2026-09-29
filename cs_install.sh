@@ -32,8 +32,8 @@ readonly JRC_IMAGE_REGISTRY="d-prd-registry.jrc.it/d6-estation"
 readonly DFLT_ENV_FILE="${BASE_DIR}/.env"
 readonly TMPL_ENV_FILE="${BASE_DIR}/.env.template"
 
-readonly CS_IMAGES=("climatestation/postgis:latest"
-                    "climatestation/cstation:latest"
+readonly CS_IMAGES=("climatestation/postgis:develop"
+                    "climatestation/cstation:develop"
                     )
 
 readonly CSTATION_COMPOSE="${BASE_DIR}/docker-compose.yml"
