@@ -23,7 +23,7 @@ services:
     volumes:
       - web_spooler:/var/local/spooler
       - pg_hba_conf:/etc/postgresql/17/main:rw
-      - ./log/web:/var/log/uwsgi
+      - ./log/web:/var/log/uvicorn
       - ${DATA_VOLUME}:/data:rw
       - ${TMP_VOLUME}:/tmp/climatestation
 
