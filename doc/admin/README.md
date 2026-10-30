@@ -71,3 +71,5 @@ any running notebook containers.
 | 7 | [JupyterNotebook and IMPACT Integration](./jupyter-impact-integration.md) | How the notebook environment and IMPACT Toolbox are launched |
 | 8 | [Log Files and Troubleshooting](./log-files.md) | Where each component's logs live and which to read |
 | 9 | [Checking Containers and Services](./container-health.md) | Verifying containers are up/healthy and start/stop/restart |
+| 10 | [Installation Type, Role, and Mode](./installation-type-role-mode.md) | Deployment type, and the `role`/`mode` (Current mode) settings for the two-machine (double/Tecnavia) setup |
+| 11 | [Bucardo Database Synchronisation](./bucardo-db-sync.md) | How the two-machine (double) databases are kept in sync, how it is controlled, and how to check it |
